@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>FaultSense</title>
+  <meta name="description" content="Altivar drive fault diagnosis with a manual page for every step.">
+  <meta name="theme-color" content="#d6d8d3">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23151918'/%3E%3Cpath d='M10 7h13M10 16h10M9.5 8v7M9.5 17v8' stroke='%23ff4a2e' stroke-width='3.2' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+  <script>
+    // Apply a saved theme before the first paint, so the page never flashes the wrong colours.
+    try { const t = JSON.parse(localStorage.getItem("faultsense.theme")); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}
+  </script>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="bar">
+    <a class="mark" href="/">FaultSense</a>
+    <div class="bar-right">
+      <p class="lamp" id="lamp" data-state="checking" role="status">
+        <span class="lamp-light" aria-hidden="true"></span>
+        <span id="lamp-text">Starting up</span>
+      </p>
+      <button class="icon-button" type="button" id="theme" aria-label="Colour theme: automatic" title="Colour theme"></button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="ask" aria-labelledby="ask-title">
+      <form id="ask-form" class="panel" novalidate>
+        <h1 class="ask-title" id="ask-title">What is the drive showing?</h1>
+        <p class="ask-help">Type the code on the drive's display, or describe what the machine is doing.</p>
+
+        <fieldset class="machines">
+          <legend class="field-label">Machine</legend>
+          <div class="tiles" id="tiles"></div>
+        </fieldset>
+
+        <label class="field-label" for="query">Code or problem</label>
+        <div class="query-box">
+          <textarea id="query" name="query" rows="3" maxlength="2000" autocomplete="off"
+                    placeholder="OHF on the display, or: pump trips on hot afternoons"></textarea>
+          <button class="mic" type="button" id="mic" hidden aria-label="Speak the problem" title="Speak instead of typing (uses your browser's speech service)"></button>
+        </div>
+        <p class="query-hint" id="query-hint">Press Ctrl+Enter to diagnose.</p>
+
+        <div class="examples" id="examples" role="group" aria-label="Example questions"></div>
+
+        <button class="go" type="submit" id="go">Diagnose</button>
+        <p class="form-error" id="form-error" role="alert" hidden></p>
+      </form>
+
+      <div class="recent" id="recent" hidden>
+        <h2 class="recent-title">Recent</h2>
+        <ul class="recent-list" id="recent-list"></ul>
+      </div>
+    </section>
+
+    <section class="answer" id="answer" aria-live="polite" aria-busy="false" aria-label="Diagnosis"></section>
+  </main>
+
+  <footer class="foot">
+    <p>FaultSense answers only from the Schneider Electric Altivar manuals on this computer and is not affiliated with Schneider Electric. Always follow your site's lockout procedure before opening a drive.</p>
+    <p id="engine"></p>
+  </footer>
+
+  <dialog class="sheet" id="sheet" aria-labelledby="sheet-title">
+    <div class="sheet-head">
+      <div>
+        <p class="sheet-where" id="sheet-where"></p>
+        <h2 class="sheet-title" id="sheet-title"></h2>
+      </div>
+      <button class="icon-button" type="button" id="sheet-close" aria-label="Close"></button>
+    </div>
+    <div class="sheet-body" id="sheet-body"></div>
+    <div class="sheet-foot">
+      <a class="sheet-pdf" id="sheet-pdf" target="_blank" rel="noopener">Open the PDF at this page</a>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

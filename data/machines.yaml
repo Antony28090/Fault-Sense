@@ -1,0 +1,15 @@
+# Example machines: one per drive family, each in that drive's typical application.
+# FaultSense has no real plant yet; replace these with real machine ids and drive models when there is one.
+machines:
+  - id: DEMO-FAN-01
+    manual: atv12
+    description: "Exhaust fan on an ATV12"
+  - id: DEMO-CONV-01
+    manual: atv320
+    description: "Conveyor on an ATV320"
+  - id: DEMO-PUMP-01
+    manual: atv600
+    description: "Borewell pump on an ATV630"
+  - id: DEMO-HOIST-01
+    manual: atv900
+    description: "Hoist on an ATV930"

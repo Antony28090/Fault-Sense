@@ -1,0 +1,725 @@
+# REAL-WORLD eval scenarios built from Schneider Electric's public FAQ pages (se.com/faqs), 2026-10-02.
+# Each query restates a real customer question in operator words; reference_answer paraphrases Schneider's
+# answer; expected_causes/expected_sources come from the drive's programming manual, because FaultSense can
+# only answer from the manuals. notes say where Schneider's answer goes beyond the manual.
+# Every scenario is `reviewed: false` until a person has compared it with its source_url.
+# Run: faultsense eval run --scenarios data/eval/scenarios_web.yaml
+
+# ---------------- ATV12 (DEMO-FAN-01) ----------------
+- id: web-atv12-olf
+  type: fault_code
+  query: Fan drive keeps tripping on OLF after it has been running a while
+  machine_id: DEMO-FAN-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OLF]
+  expected_causes: [Triggered by excessive motor current]
+  expected_sources: [{manual: atv12, pages: [113]}]
+  source_url: https://www.se.com/us/en/faqs/FA225541/
+  reference_answer: The motor draws more current than the motor thermal current setting (ItH). Check the load and the motor nameplate settings in the drive (frequency, voltage, current, speed), check the phase currents are balanced, and set ItH to the motor's full-load current.
+  reviewed: false
+
+- id: web-atv12-cff
+  type: fault_code
+  query: ATV12 shows CFF at power up and it will not clear
+  machine_id: DEMO-FAN-01
+  expected_behavior: diagnose
+  expected_fault_codes: [CFF]
+  expected_causes:
+  - HMI block replaced by an HMI block configured on a drive with a different rating
+  - The current configuration of customer parameters is inconsistent
+  expected_sources: [{manual: atv12, pages: [115]}]
+  source_url: https://www.se.com/us/en/faqs/FA265557/
+  reference_answer: Either the keypad/HMI block came from a drive with a different rating or the parameter set is inconsistent. Restore factory settings from the ConF menu and power-cycle; if CFF stays after reprogramming, the drive needs replacing.
+  reviewed: false
+
+- id: web-atv12-obf
+  type: fault_code
+  query: The fan drive trips with ObF
+  machine_id: DEMO-FAN-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OBF]
+  expected_causes: [Braking too sudden or driving load too high]
+  expected_sources: [{manual: atv12, pages: [113]}]
+  source_url: https://www.se.com/us/en/faqs/FAQ000225108/
+  reference_answer: Too much braking energy comes back into the drive, usually from a fast deceleration or a high-inertia load; a high supply voltage or surges add to it. Lengthen the deceleration time, add a braking resistor if needed and check the supply voltage.
+  reviewed: false
+
+- id: web-atv12-osf
+  type: fault_code
+  query: ATV12 is showing OSF on the display
+  machine_id: DEMO-FAN-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OSF]
+  expected_causes: [Line voltage too high, Disturbed line supply]
+  expected_sources: [{manual: atv12, pages: [113]}]
+  source_url: https://www.se.com/us/en/faqs/FA271567/
+  reference_answer: Mains voltage is too high (more than 10 % over the maximum at power-on, or 20 % while running) or the supply is disturbed. Remove the cause of the overvoltage and power-cycle; if it comes back at start-up the supply problem is still there.
+  reviewed: false
+
+- id: web-atv12-ocf
+  type: fault_code
+  query: Fan drive tripped on OCF
+  machine_id: DEMO-FAN-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OCF]
+  expected_causes:
+  - Parameters in the Motor control menu are not correct
+  - Inertia or load too high
+  - Mechanical locking
+  expected_sources: [{manual: atv12, pages: [112]}]
+  source_url: https://www.se.com/us/en/faqs/FA404304/
+  reference_answer: The load is mechanically jammed or too big for the drive and motor; low line voltage can contribute. Check the motor and drive ratings match, set ItH to the motor full-load current, consider catch-on-the-fly, check the supply and measure the motor current.
+  reviewed: false
+
+- id: web-atv12-phf
+  type: fault_code
+  query: ATV12 gives a PHF input phase loss when it runs under load
+  machine_id: DEMO-FAN-01
+  expected_behavior: diagnose
+  expected_fault_codes: [PHF]
+  expected_causes:
+  - Drive incorrectly supplied or a fuse blown
+  - Failure of one phase
+  - 3-phase ATV12 used on a 1-phase line supply
+  - Unbalanced load
+  expected_sources: [{manual: atv12, pages: [114]}]
+  source_url: https://www.se.com/us/en/faqs/FAQ000225111/
+  reference_answer: One input phase is missing or unstable - wrong supply connection, a blown fuse or an unsuitable supply. Check the input phases and fuses and the supply; phase-loss detection (IPL) can be disabled only where that is appropriate.
+  reviewed: false
+
+- id: web-atv12-opf2
+  type: fault_code
+  query: Getting an OPF2 fault on the ATV12
+  machine_id: DEMO-FAN-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OPF2]
+  expected_causes:
+  - Motor not connected
+  - Motor power too low, below 6% of the drive nominal current
+  - Output contactor open
+  - Instantaneous instability in the motor current
+  expected_sources: [{manual: atv12, pages: [113]}]
+  source_url: https://www.se.com/eg/en/faqs/FAQ000225244/
+  reference_answer: The drive sees no motor current - motor not connected, motor too small, output contactor open or unstable motor current. Check the motor wiring; for tests without a motor disable output phase loss detection; tune IR compensation and the motor settings and run an auto-tune.
+  reviewed: false
+
+- id: web-atv12-lff1
+  type: fault_code
+  query: LFF1 error on the fan drive
+  machine_id: DEMO-FAN-01
+  expected_behavior: diagnose
+  expected_fault_codes: [LFF1]
+  expected_causes:
+  - Analog input AI1 is configured as current and the input current is lower than 2 mA
+  expected_sources: [{manual: atv12, pages: [113]}]
+  source_url: https://www.se.com/us/en/faqs/FA374181/
+  reference_answer: AI1 is set up as a current input scaled above 3 mA but the signal has dropped below 2 mA (lost 4-20 mA signal). Check the AI1 configuration and look for a loose or broken signal wire.
+  reviewed: false
+
+- id: web-atv12-scf1
+  type: fault_code
+  query: SCF1 on the ATV12 drive, what do I check
+  machine_id: DEMO-FAN-01
+  expected_behavior: diagnose
+  expected_fault_codes: [SCF1]
+  expected_causes:
+  - Short-circuit or grounding at the drive output
+  - Ground fault during running status
+  expected_sources: [{manual: atv12, pages: [112]}]
+  source_url: https://www.se.com/us/en/faqs/FA171663/
+  reference_answer: A short circuit or ground fault at the drive output. Megger the motor, inspect the motor cables, run the drive without the motor to check the output voltages are balanced, and replace the drive or motor if needed.
+  reviewed: false
+
+- id: web-atv12-usf
+  type: fault_code
+  query: Undervoltage fault USF keeps showing on the ATV12
+  machine_id: DEMO-FAN-01
+  expected_behavior: diagnose
+  expected_fault_codes: [USF]
+  expected_causes: [Line supply too low, Transient voltage dip]
+  expected_sources: [{manual: atv12, pages: [115]}]
+  source_url: https://www.se.com/us/en/faqs/FA332668/
+  reference_answer: The DC bus or line voltage fell below the undervoltage threshold. Measure the line-to-line voltages and compare them with the mains voltage setting, lower that setting if the site supply is normally low, lengthen the undervoltage time-out (for example with line contactors), and check whether the load pulls the supply down.
+  reviewed: false
+
+- id: web-atv12-nlp
+  type: symptom
+  query: ATV12 display just says NLP and the drive will not run
+  machine_id: DEMO-FAN-01
+  expected_behavior: diagnose
+  expected_causes: [No mains voltage - the control is powered but the DC bus is not loaded]
+  expected_sources: [{manual: atv12, pages: [43, 111]}]
+  source_url: https://www.se.com/us/en/faqs/FA232738/
+  reference_answer: NLP means the drive thinks there is no line voltage. Measure L1, L2 and L3, compare with the ULn mains voltage reading in the MON menu, and measure the DC bus at PA+/PC- (about 324 VDC for a 230 V drive).
+  notes: NLP is a status, not a fault; the manual lists it with the HMI status codes (p.43) and covers no-start cases on p.111.
+  reviewed: false
+
+- id: web-atv12-blank-display
+  type: symptom
+  query: The ATV12 will not power up, the display stays completely blank
+  machine_id: DEMO-FAN-01
+  expected_behavior: diagnose
+  expected_causes: [Check the power supply to the drive - ground and input phase connections]
+  expected_sources: [{manual: atv12, pages: [111]}]
+  source_url: https://www.se.com/us/en/faqs/FA325939/
+  reference_answer: Likely a failed control or power board. Check the mains on L1-L3, measure the DC bus, check the control terminal supplies and that external devices are not loading the +24 VDC supply; otherwise the drive has an internal failure and must be replaced (no spare parts for ATV12).
+  notes: The manual's no-start section only says to check the power supply; Schneider's board-failure diagnosis goes beyond it.
+  reviewed: false
+
+# ---------------- ATV320 (DEMO-CONV-01) ----------------
+- id: web-atv320-scf4
+  type: fault_code
+  query: Conveyor drive keeps tripping on SCF4
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_fault_codes: [SCF4]
+  expected_causes: [Power component detected error]
+  expected_sources: [{manual: atv320, pages: [417]}]
+  source_url: https://www.se.com/us/en/faqs/FA338059/
+  reference_answer: Either a failed power component (IGBT) or a motor/cable problem. Disconnect the motor leads, disable output phase loss and run the drive; if it still faults replace the drive, otherwise inspect the motor connections and cable insulation.
+  reviewed: false
+
+- id: web-atv320-scf-powerup
+  type: symptom
+  query: ATV320 trips on an SCF short circuit fault as soon as we power it up
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_causes:
+  - Short-circuit or grounding at the drive output
+  - Power component detected error
+  expected_sources: [{manual: atv320, pages: [416, 417]}]
+  source_url: https://www.se.com/us/en/faqs/FAQ000239566/
+  reference_answer: An IGBT short-circuit points to a failed power component or a motor/cable fault. Long motor cable runs (over about 100 ft) can cause it; fit an output load reactor in that case.
+  notes: The operator says "SCF" without the digit, so no exact code can match; expected pages cover SCF1/SCF3 (p.416) and SCF4 (p.417).
+  reviewed: false
+
+- id: web-atv320-blf
+  type: fault_code
+  query: Our ATV320 trips on BLF now and then, not every time
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_fault_codes: [BLF]
+  expected_causes: [Brake release current not reached, Brake engage frequency threshold not regulated when brake logic is assigned]
+  expected_sources: [{manual: atv320, pages: [404]}]
+  source_url: https://www.se.com/us/en/faqs/FA332040/
+  reference_answer: A known firmware issue (drive V2.7ie23 with MC V1.5ie07) gives random BLF detection when a brake sequence is configured; contact Schneider support for a firmware update.
+  notes: Schneider's answer is a firmware defect that is not in the manual; FaultSense can only give the manual's brake-control causes.
+  reviewed: false
+
+- id: web-atv320-osf
+  type: fault_code
+  query: ATV320 drives trip on OSF
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OSF]
+  expected_causes: [Supply voltage too high, Disturbed mains supply]
+  expected_sources: [{manual: atv320, pages: [414]}]
+  source_url: https://www.se.com/us/en/faqs/FA359730/
+  reference_answer: The supply is too high for the drive's threshold - note the DC-bus OSF threshold is 790 VDC on the ATV320, lower than the 840 VDC on the older ATV312, so a replacement can trip where the old drive did not.
+  reviewed: false
+
+- id: web-atv320-osf-powerup
+  type: fault_code
+  query: The ATV320 gives OSF every time we switch it on
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OSF]
+  expected_causes: [Supply voltage too high, Disturbed mains supply]
+  expected_sources: [{manual: atv320, pages: [414]}]
+  source_url: https://www.se.com/us/en/faqs/FA404185/
+  reference_answer: The Mains voltage setting (UrES) does not match the real supply. Set UrES under the fault management menu to the actual line voltage (for example 460 V instead of 380 V).
+  reviewed: false
+
+- id: web-atv320-obf-resistor
+  type: fault_code
+  query: Still getting OBF on the conveyor drive even after fitting a braking resistor
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OBF]
+  expected_causes: [Braking too sudden or driving load, Supply voltage too high]
+  expected_sources: [{manual: atv320, pages: [412]}]
+  source_url: https://www.se.com/us/en/faqs/FAQ000223461/
+  reference_answer: The DC bus still over-charges on ramp-down. Check the PO-PA+ jumper is fitted, the resistor is wired between PO and PB, measure the resistor value with power off, set bRA (deceleration ramp adaptation) to nO, and check the resistor is sized correctly.
+  reviewed: false
+
+- id: web-atv320-tnf
+  type: fault_code
+  query: ATV320 shows tnF when we turn it on
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_fault_codes: [TNF]
+  expected_causes:
+  - Special motor or motor whose power is not suitable for the drive
+  - Motor not connected to the drive
+  - Motor not stopped
+  expected_sources: [{manual: atv320, pages: [419]}]
+  source_url: https://www.se.com/us/en/faqs/FAQ000222381/
+  reference_answer: An autotune fault. If a motor is connected, check the terminals, cables and motor; if no motor is connected, automatic autotune is enabled - turn it off (DRC menu, automatic autotune = no).
+  reviewed: false
+
+- id: web-atv320-ohf
+  type: fault_code
+  query: Conveyor drive trips on OHF
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OHF]
+  expected_causes: [Drive temperature too high]
+  expected_sources: [{manual: atv320, pages: [413]}]
+  source_url: https://www.se.com/us/en/faqs/FA377302/
+  reference_answer: The drive is too hot. Check the motor load, the drive ventilation and the ambient temperature, let it cool before restarting, and check the fans run (they start at about 70 % drive thermal state).
+  reviewed: false
+
+- id: web-atv320-cof
+  type: fault_code
+  query: CoF fault on the ATV320 on our CANopen network
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_fault_codes: [COF]
+  expected_causes: [Communication interruption on the CANopen bus]
+  expected_sources: [{manual: atv320, pages: [406]}]
+  source_url: https://www.se.com/us/en/faqs/FA356933/
+  reference_answer: CANopen communication was interrupted. Check the CANopen cables, the 120-ohm line terminators at both ends, and the baud rate setting (bdCO).
+  reviewed: false
+
+- id: web-atv320-cnf
+  type: fault_code
+  query: ATV320 with a fieldbus card shows CNF
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_fault_codes: [CNF]
+  expected_causes: [Communication interruption on communication module]
+  expected_sources: [{manual: atv320, pages: [406]}]
+  source_url: https://www.se.com/in/en/faqs/FA383980/
+  reference_answer: Communication on the option card was interrupted. Check the wiring, keep network cables away from power and motor leads, check the time-out and network settings, and check the card.
+  reviewed: false
+
+- id: web-atv320-tjf
+  type: fault_code
+  query: TJF fault on the conveyor drive
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_fault_codes: [TJF]
+  expected_causes: [Drive overheated]
+  expected_sources: [{manual: atv320, pages: [419]}]
+  source_url: https://www.se.com/in/en/faqs/FA383986/
+  reference_answer: The IGBTs overheated because the drive is too hot. Check the load and motor/drive sizing, lower the switching frequency, and let it cool before restarting.
+  reviewed: false
+
+- id: web-atv320-saff
+  type: fault_code
+  query: ATV320 is showing SAFF
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_fault_codes: [SAFF]
+  expected_causes: [Debounce time exceeded, SS1 threshold exceeded, Incorrect configuration, SLS type overspeed detected]
+  expected_sources: [{manual: atv320, pages: [416]}]
+  source_url: https://ckm-content.se.com/ckmContent/sfc/servlet.shepherd/document/download/0691H00000EGireQAD
+  reference_answer: A safety-function error with several possible roots - the safety configuration, an unstable 24 VDC supply on the STO inputs, or a failed internal component.
+  notes: Source is a Schneider diagnostic document, not an FAQ page.
+  reviewed: false
+
+- id: web-atv320-opf2
+  type: fault_code
+  query: Conveyor drive keeps tripping on OPF2 output phase loss
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OPF2]
+  expected_causes: [Motor not connected or motor power too low, Output contactor open, Instantaneous instability in the motor current]
+  expected_sources: [{manual: atv320, pages: [414]}]
+  source_url: https://www.se.com/us/en/faqs/FA369464/
+  reference_answer: One or all output phases are lost - loose wiring, very low motor current, motor disconnected or an open motor contactor. Check the drive-motor wiring and motor settings, disable output phase loss when a separate contactor is used, test without the motor, or lengthen the detection delay.
+  reviewed: false
+
+- id: web-atv320-no-output
+  type: symptom
+  query: The ATV320 is not putting any voltage out to the motor, the display just shows rdY
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_causes: [The drive is ready and waiting for a run command]
+  expected_sources: [{manual: atv320, pages: [34, 71]}]
+  source_url: https://www.se.com/us/en/faqs/FAQ000223655/
+  reference_answer: The drive has no run command. rdY means waiting for a run command (usually 24 V to DI1 forward or DI2 reverse, depending on the CtL menu); nSt means stop mode; STO means the safety wiring does not allow running.
+  notes: rdY is a status, not a fault; the manual lists drive states on p.34 and p.71.
+  reviewed: false
+
+- id: web-atv320-zero-speed
+  type: symptom
+  query: We give the ATV320 a run command but the display shows 0 and the motor does not turn
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_causes: [The drive has a run command but no speed reference - check the reference channel assignment]
+  expected_sources: [{manual: atv320, pages: [182]}]
+  source_url: https://www.se.com/uk/en/faqs/FA278957/
+  reference_answer: The drive is running with a zero speed reference. Check the analog input signal and the Fr1 reference assignment in the CtL menu, or set low speed above 0 Hz to confirm it runs.
+  notes: Expected page is the command and reference channel section; check during review.
+  reviewed: false
+
+- id: web-atv320-flashing-display
+  type: symptom
+  query: The display on the ATV320 is flashing and the motor never gets up to the set speed
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_causes: [The drive is in current limitation]
+  expected_sources: [{manual: atv320, pages: [34, 71, 110]}]
+  source_url: https://www.se.com/ca/en/faqs/FA338829/
+  reference_answer: The motor is at maximum current (current limitation). Check the direction and for a locked rotor, the motor nameplate settings, the current limit (CLI) and thermal settings, and measure the real motor current.
+  reviewed: false
+
+- id: web-atv320-autotune-nst
+  type: symptom
+  query: Autotune will not start on the ATV320, it just sits in nSt
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_causes: [In 3-wire control the stop input DI1 must be active, otherwise the drive stays in freewheel stop and autotuning is not allowed]
+  expected_sources: [{manual: atv320, pages: [125, 145]}]
+  source_url: https://www.se.com/us/en/faqs/FA310896/
+  reference_answer: With 3-wire control and DI1 not active the drive stays in nSt and refuses autotune; when controlled over Modbus, the command word sequence must be sent before a keypad autotune works.
+  notes: Expected pages (autotuning and 3-wire control) are a best guess; check during review.
+  reviewed: false
+
+# ---------------- ATV600 (DEMO-PUMP-01) ----------------
+- id: web-atv600-opf1
+  type: fault_code
+  query: Pump drive shows OPF1
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OPF1]
+  expected_causes: [Loss of one phase at device output]
+  expected_sources: [{manual: atv600, pages: [673]}]
+  source_url: https://www.se.com/us/en/faqs/FA318175/
+  reference_answer: One motor phase is lost at the drive output. Check the output wiring and motor connections and any contactor between drive and motor.
+  reviewed: false
+
+- id: web-atv600-inf6
+  type: fault_code
+  query: ATV630 shows InF6 after we fitted an option card
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_fault_codes: [INF6]
+  expected_causes:
+  - The option module installed in the device is not recognized
+  - The device firmware is not compatible with the option module
+  - The removable control terminal modules are not present or not recognized
+  expected_sources: [{manual: atv600, pages: [660]}]
+  source_url: https://www.se.com/ca/en/faqs/FA315744/
+  reference_answer: The drive does not recognise an installed option card (or the control terminal modules or embedded Ethernet adapter). Check the card is compatible with the drive firmware and properly fitted.
+  reviewed: false
+
+- id: web-atv600-epf2
+  type: fault_code
+  query: EPF2 fault on the ATV630 since we installed the BACnet card
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_fault_codes: [EPF2]
+  expected_causes: [External detected error from fieldbus module, The error is caused by the fieldbus or an application program]
+  expected_sources: [{manual: atv600, pages: [653]}]
+  source_url: https://www.se.com/ca/en/faqs/FA337586/
+  reference_answer: After adding a BACnet card the drive can trip on EPF2; check the communication profile setting.
+  reviewed: false
+
+- id: web-atv600-soc
+  type: symptom
+  query: ATV630 display shows SOC and the motor is not running
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_causes: [Output cut - the output phase loss function sees a motor phase drawing no current]
+  expected_sources: [{manual: atv600, pages: [60, 558]}]
+  source_url: https://www.se.com/ca/en/faqs/FA360665/
+  reference_answer: SOC is the "output cut" state of the output phase loss function - one or more motor phases draw no current, i.e. an open connection to the motor.
+  notes: SOC is a status, not a fault code.
+  reviewed: false
+
+- id: web-atv600-ocf
+  type: fault_code
+  query: Pump drive trips on OCF overcurrent
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OCF]
+  expected_causes:
+  - Parameters in the Motor data menu are not correct
+  - Inertia or load too high
+  - Mechanical locking
+  - Motor autotuned values do not match the motor connected
+  expected_sources: [{manual: atv600, pages: [672]}]
+  source_url: https://www.se.com/us/en/faqs/FA336832/
+  reference_answer: The motor draws more than its nameplate full-load current for too long. Enter the motor nameplate data correctly and adjust the motor control parameters.
+  reviewed: false
+
+- id: web-atv600-slf2
+  type: fault_code
+  query: SLF2 error on the ATV630 while connected to the laptop
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_fault_codes: [SLF2]
+  expected_causes: [Communication interruption with the commissioning software]
+  expected_sources: [{manual: atv600, pages: [680]}]
+  source_url: https://www.se.com/us/en/faqs/FAQ000223389/
+  reference_answer: Communication with the SoMove commissioning software was lost; check the connection to SoMove.
+  reviewed: false
+
+- id: web-atv600-ethf
+  type: fault_code
+  query: ATV630 trips on EtHF when the PLC stops talking to it
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_fault_codes: [ETHF]
+  expected_causes: [Communication interruption on the Modbus TCP/Ethernet IP bus]
+  expected_sources: [{manual: atv600, pages: [653]}]
+  source_url: https://www.se.com/ca/en/faqs/FA294121/
+  reference_answer: A Modbus TCP time-out - communication with the PLC stopped or was interrupted.
+  reviewed: false
+
+- id: web-atv600-inf7
+  type: fault_code
+  query: InF7 internal error on the pump drive
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_fault_codes: [INF7]
+  expected_causes: [Communication interruption with CPLD component of the control board]
+  expected_sources: [{manual: atv600, pages: [660]}]
+  source_url: https://www.se.com/au/en/faqs/FA353985/
+  reference_answer: Communication with the CPLD on the control board was interrupted; cycling power resets it.
+  reviewed: false
+
+- id: web-atv600-cff
+  type: fault_code
+  query: ATV630 is stuck in CFF after we took out an option module
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_fault_codes: [CFF]
+  expected_causes: [Option module changed or removed, The configuration check at power-on found an inconsistency]
+  expected_sources: [{manual: atv600, pages: [647]}]
+  source_url: https://www.se.com/in/en/faqs/FA305355/
+  reference_answer: Incorrect configuration - an option module was removed or replaced, so the drive locks in CFF at power-on until the configuration is restored or confirmed.
+  reviewed: false
+
+- id: web-atv600-usf
+  type: fault_code
+  query: Pump drive trips on USF supply mains undervoltage
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_fault_codes: [USF]
+  expected_causes: [The measured DC bus voltage is lower than the rated voltage of the Supply Mains setting, Supply Mains power too weak]
+  expected_sources: [{manual: atv600, pages: [687]}]
+  source_url: https://www.se.com/ca/en/faqs/FA316713/
+  reference_answer: Measure the real line voltage and compare it with the drive setting; set Mains Voltage (URES) to match the supply, and raise the undervoltage time-out (UST, default 0.2 s) to ride through short sags.
+  reviewed: false
+
+- id: web-atv600-ohf
+  type: fault_code
+  query: ATV630 overheating fault OHF
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OHF]
+  expected_causes:
+  - Device temperature too high
+  - Ambient temperature too high
+  - Reduced air flow due to blocked air at the inlet or outlet
+  - One of the fans does not work properly
+  expected_sources: [{manual: atv600, pages: [672]}]
+  source_url: https://www.se.com/us/en/faqs/FA311478/
+  reference_answer: OHF trips when the drive thermal state reaches 118 %; the fan starts at 70 % drive or DC-choke thermal state. Check cooling, ambient temperature, air flow and the fans.
+  reviewed: false
+
+- id: web-atv600-dryf
+  type: fault_code
+  query: Dry run fault DRYF on the borewell pump drive
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_fault_codes: [DRYF]
+  expected_causes: [The dry run monitoring function has detected an error]
+  expected_sources: [{manual: atv600, pages: [652]}]
+  source_url: https://www.se.com/us/en/faqs/FA318554/
+  reference_answer: Dry run is detected from a flow switch or flow sensor, or estimated from power or pressure; with estimation it trips when power falls below DRYX (factory 70 %) times the no-flow curve. Check the water level and the dry-run setup.
+  reviewed: false
+
+- id: web-atv600-cli-olf
+  type: fault_code
+  query: Pump drive shows CLI in the corner and then trips on OLF
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OLF]
+  expected_causes: [Excessive motor current has been detected]
+  expected_sources: [{manual: atv600, pages: [673]}]
+  source_url: https://www.se.com/us/en/faqs/FA308900/
+  reference_answer: The motor pulls too much current, so the drive goes into current limitation (CLI); if it lasts, the motor thermal state passes 118 % and it trips on OLF. Check the motor nameplate data, run the motor unloaded, check the wiring and insulation, and check the output voltages are balanced.
+  reviewed: false
+
+- id: web-atv600-cnf
+  type: fault_code
+  query: CNF fieldbus fault on the ATV630
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_fault_codes: [CNF]
+  expected_causes: [Communication interruption on fieldbus module]
+  expected_sources: [{manual: atv600, pages: [649]}]
+  source_url: https://www.se.com/us/en/faqs/FA339922/
+  reference_answer: Communication between the option card and the master was interrupted. Check EMC, wiring, grounding and cable routing, and that the controller reads or writes within the time-out (tto).
+  reviewed: false
+
+# ---------------- ATV900 (DEMO-HOIST-01) ----------------
+- id: web-atv900-obf
+  type: fault_code
+  query: ATV930 trips on OBF while running
+  machine_id: DEMO-HOIST-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OBF]
+  expected_causes:
+  - The DC bus voltage is too high
+  - Deceleration time too short or driving load too high
+  - Mains voltage too high
+  expected_sources: [{manual: atv900, pages: [679]}]
+  source_url: https://www.se.com/us/en/faqs/FAQ000272284/
+  reference_answer: The drive measures too high a DC-bus voltage while running the motor, above the permitted threshold - typically from regenerated energy.
+  reviewed: false
+
+- id: web-atv900-ethernet-eip
+  type: symptom
+  query: The ATV930 keeps losing its embedded Ethernet connection on our EtherNet/IP network
+  machine_id: DEMO-HOIST-01
+  expected_behavior: diagnose
+  expected_causes: [Communication interruption on the Modbus TCP/Ethernet IP bus]
+  expected_sources: [{manual: atv900, pages: [662]}]
+  source_url: https://www.se.com/us/en/faqs/FA317296/
+  reference_answer: RSTP (rapid spanning tree) is enabled by default on the embedded Ethernet and cannot be changed from the keypad; Schneider gives the fix in an attached document.
+  notes: Schneider's answer (RSTP) is not in the manual; FaultSense can only point at the ETHF communication error.
+  reviewed: false
+
+- id: web-atv900-mdlf
+  type: fault_code
+  query: MDLF multidrive link error on the ATV930
+  machine_id: DEMO-HOIST-01
+  expected_behavior: diagnose
+  expected_fault_codes: [MDLF]
+  expected_causes:
+  - The multi-drive link communication has been interrupted while running
+  - The function has detected an inconsistency in the system configuration
+  expected_sources: [{manual: atv900, pages: [678]}]
+  source_url: https://www.se.com/us/en/faqs/FAQ000243511/
+  reference_answer: Communication between the server and client drives was interrupted, or the MultiDrive link found an inconsistent system configuration.
+  reviewed: false
+
+- id: web-atv900-blf
+  type: fault_code
+  query: Hoist drive trips on BLF brake control fault
+  machine_id: DEMO-HOIST-01
+  expected_behavior: diagnose
+  expected_fault_codes: [BLF]
+  expected_causes: [The brake release current is not reached, The torque set point is not reached, The fluxing current is not stable]
+  expected_sources: [{manual: atv900, pages: [651]}]
+  source_url: https://www.se.com/us/en/faqs/FA359574/
+  reference_answer: With brake logic in use the brake-open conditions were not met - the release current (IBR) was not reached in time or the motor could not be fluxed. Check the motor windings, IBR/IRD, the brake engage frequency and the current ramp time.
+  reviewed: false
+
+- id: web-atv900-sof
+  type: fault_code
+  query: Hoist drive trips on SOF overspeed while accelerating
+  machine_id: DEMO-HOIST-01
+  expected_behavior: diagnose
+  expected_fault_codes: [SOF]
+  expected_causes:
+  - Instability or driving load too high
+  - A downstream contactor has not closed before the run command
+  - The overspeed threshold has been reached
+  expected_sources: [{manual: atv900, pages: [688]}]
+  source_url: https://www.se.com/sa/en/faqs/FA345468/
+  reference_answer: Wrong motor nameplate settings, unsuitable motor control type, or encoder feedback problems. Check the motor data, motor control type, encoder wiring, that any contactor closes before the run command, and the motor/drive/load sizing.
+  reviewed: false
+
+- id: web-atv900-brf
+  type: fault_code
+  query: brF brake feedback fault on the hoist
+  machine_id: DEMO-HOIST-01
+  expected_behavior: diagnose
+  expected_fault_codes: [BRF]
+  expected_causes: [The status of the brake feedback contact or brake relay feedback does not match the brake logic control]
+  expected_sources: [{manual: atv900, pages: [652]}]
+  source_url: https://www.se.com/uk/en/faqs/FA359580/
+  reference_answer: The brake contact feedback does not match the brake command. Check the brake mechanically, the brake contact input (BCI) and brake assignment (BLC), and the brake release and engage times (BRT, BET).
+  reviewed: false
+
+- id: web-atv900-bufo
+  type: fault_code
+  query: bUFO braking unit open circuit on the ATV930
+  machine_id: DEMO-HOIST-01
+  expected_behavior: diagnose
+  expected_fault_codes: [BUFO]
+  expected_causes: [Open circuit from braking unit and/or braking resistor, Low current from braking unit and/or braking resistor, Braking unit or braking resistor not connected]
+  expected_sources: [{manual: atv900, pages: [653]}]
+  source_url: https://www.se.com/us/en/faqs/FA359602/
+  reference_answer: Check the braking resistor wiring, whether the resistor has failed, and the BRI1 parameter.
+  reviewed: false
+
+- id: web-atv900-buf
+  type: fault_code
+  query: bUF braking unit short circuit fault on the ATV930
+  machine_id: DEMO-HOIST-01
+  expected_behavior: diagnose
+  expected_fault_codes: [BUF]
+  expected_causes: [Short circuit inside the braking unit, Braking unit wiring in short circuit, Short circuit to the ground]
+  expected_sources: [{manual: atv900, pages: [653]}]
+  source_url: https://www.se.com/us/en/faqs/FA359589/
+  reference_answer: A short inside the braking module, a failed braking resistor, a ground fault, or BRA set to No with no braking resistor fitted. Inspect the braking unit and resistor wiring and check the settings.
+  reviewed: false
+
+- id: web-atv900-anf
+  type: fault_code
+  query: AnF load slipping error on the hoist drive
+  machine_id: DEMO-HOIST-01
+  expected_behavior: diagnose
+  expected_fault_codes: [ANF]
+  expected_causes: [The difference between the output frequency and the speed feedback is not correct]
+  expected_sources: [{manual: atv900, pages: [651]}]
+  source_url: https://www.se.com/us/en/faqs/FA359571/
+  reference_answer: Speed feedback does not follow the speed reference (or exceeds 10 % of nominal speed). Check the brake feedback, control wiring and the brake's mechanical condition, and the brake parameters BCI, BLC, BRT and BET.
+  reviewed: false
+
+- id: web-atv900-ocf-nomachine
+  type: fault_code
+  query: What causes an OCF overcurrent fault on an ATV930
+  expected_behavior: diagnose
+  expected_fault_codes: [OCF]
+  expected_causes:
+  - Parameters in the Motor data menu are not correct
+  - Inertia or load too high
+  - Mechanical locking
+  expected_sources: [{manual: atv900, pages: [680]}]
+  source_url: https://www.se.com/us/en/faqs/FA336832/
+  reference_answer: The motor draws more than its nameplate full-load current for too long. Enter the motor nameplate data correctly and adjust the motor control parameters.
+  notes: No machine given - the answer must use the ATV900 manual because the operator named an ATV930.
+  reviewed: false
+
+# ---------------- Out of scope: products FaultSense has no manual for ----------------
+- id: web-oos-ats48-usf
+  type: out_of_scope
+  query: Our ATS48 soft starter is showing a USF fault
+  expected_behavior: escalate
+  source_url: https://www.se.com/us/en/faqs/FA183550/
+  reference_answer: About an Altistart soft starter, not an Altivar drive; FaultSense has no soft-starter manual.
+  notes: USF is also an Altivar code, so this tests whether FaultSense answers for the wrong product.
+  reviewed: false
+
+- id: web-oos-atv71-usf
+  type: out_of_scope
+  query: What is a USF fault on an ATV71
+  expected_behavior: escalate
+  source_url: https://www.se.com/us/en/faqs/FA237689/
+  reference_answer: About the ATV61/ATV71 drive family, which FaultSense has no manual for.
+  notes: Tests whether FaultSense answers an ATV71 question from the ATV12/320/600/900 manuals.
+  reviewed: false
+
+- id: web-oos-atv312-slf
+  type: out_of_scope
+  query: How do I clear the SLF serial link fault on an ATV312 that had a remote keypad
+  expected_behavior: escalate
+  source_url: https://www.se.com/us/en/faqs/FA175450/
+  reference_answer: About the ATV312 (the ATV320's predecessor), which FaultSense has no manual for.
+  reviewed: false
+
+- id: web-oos-atv61-ohf
+  type: out_of_scope
+  query: When does an ATV61 trip on OHF drive overheat
+  expected_behavior: escalate
+  source_url: https://www.se.com/eg/en/faqs/FA12128/
+  reference_answer: About the ATV61/ATV71 drive family, which FaultSense has no manual for.
+  reviewed: false

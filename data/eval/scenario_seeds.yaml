@@ -1,0 +1,61 @@
+# Seeds for data/eval/scenarios.yaml. Regenerate the drafts with `faultsense eval draft`.
+# Machines are the placeholders in data/machines.yaml:
+#   DEMO-FAN-01 -> atv12, DEMO-CONV-01 -> atv320, DEMO-PUMP-01 -> atv600, DEMO-HOIST-01 -> atv900
+# `targets` are the fault codes an answer should rest on; the first target supplies expected_causes.
+# A target without `manual` expands to every manual that has the code.
+
+# --- fault-code queries (18) ---
+- {id: code-atv12-ohf, type: fault_code, machine_id: DEMO-FAN-01, query: "ATV12 on the exhaust fan shows OHF", targets: [{manual: atv12, code: OHF}]}
+- {id: code-atv12-scf3, type: fault_code, machine_id: DEMO-FAN-01, query: "Display shows SCF3 after we changed the motor cable", targets: [{manual: atv12, code: SCF3}]}
+- {id: code-atv12-inf1-digit, type: fault_code, machine_id: DEMO-FAN-01, query: "fan drive says InF1 and nothing works", targets: [{manual: atv12, code: InFI}]}
+- {id: code-atv12-obf-lowercase, type: fault_code, machine_id: DEMO-FAN-01, query: "obf fault when the fan stops", targets: [{manual: atv12, code: ObF}]}
+- {id: code-atv320-brf, type: fault_code, machine_id: DEMO-CONV-01, query: "Conveyor drive tripped on brF", targets: [{manual: atv320, code: brF}]}
+- {id: code-atv320-cff, type: fault_code, machine_id: DEMO-CONV-01, query: "CFF on the conveyor drive after maintenance", targets: [{manual: atv320, code: CFF}]}
+- {id: code-atv320-olf, type: fault_code, machine_id: DEMO-CONV-01, query: "OLF fault on conveyor 1", targets: [{manual: atv320, code: OLF}]}
+- {id: code-atv320-phf-uppercase, type: fault_code, machine_id: DEMO-CONV-01, query: "Drive shows PHF", targets: [{manual: atv320, code: phf}]}
+- {id: code-atv320-tnf, type: fault_code, machine_id: DEMO-CONV-01, query: "TNF error while commissioning the conveyor motor", targets: [{manual: atv320, code: tnf}]}
+- {id: code-atv600-ohf, type: fault_code, machine_id: DEMO-PUMP-01, query: "Pump drive showing OHF and it won't restart", targets: [{manual: atv600, code: OHF}]}
+- {id: code-atv600-ocf, type: fault_code, machine_id: DEMO-PUMP-01, query: "OCF trip on the pump drive at start", targets: [{manual: atv600, code: OCF}]}
+- {id: code-atv600-olf-zero, type: fault_code, machine_id: DEMO-PUMP-01, query: "0LF on the pump", targets: [{manual: atv600, code: OLF}]}
+- {id: code-atv600-dryf, type: fault_code, machine_id: DEMO-PUMP-01, query: "DRYF fault on the borewell pump", targets: [{manual: atv600, code: DRYF}]}
+- {id: code-atv600-slf1, type: fault_code, machine_id: DEMO-PUMP-01, query: "SLF1 keeps coming on the pump drive", targets: [{manual: atv600, code: SLF1}]}
+- {id: code-atv900-obf, type: fault_code, machine_id: DEMO-HOIST-01, query: "Hoist drive trips with OBF when lowering", targets: [{manual: atv900, code: OBF}]}
+- {id: code-atv900-blf, type: fault_code, machine_id: DEMO-HOIST-01, query: "BLF on the hoist drive", targets: [{manual: atv900, code: BLF}]}
+- {id: code-atv900-opf2, type: fault_code, machine_id: DEMO-HOIST-01, query: "OPF2 error on the hoist", targets: [{manual: atv900, code: OPF2}]}
+- {id: code-nomachine-scf1, type: fault_code, query: "What does SCF1 mean?", targets: [{code: SCF1}]}
+
+# --- symptom descriptions (18) ---
+- {id: sym-atv600-hot-afternoons, type: symptom, machine_id: DEMO-PUMP-01, query: "Pump drive trips after about 10 minutes on hot afternoons, but runs fine in the morning", targets: [{manual: atv600, code: OHF}, {manual: atv600, code: TJF}]}
+- {id: sym-atv600-trips-at-start, type: symptom, machine_id: DEMO-PUMP-01, query: "Pump drive trips the moment we press start and the motor just hums", targets: [{manual: atv600, code: OCF}]}
+- {id: sym-atv600-low-mains-evening, type: symptom, machine_id: DEMO-PUMP-01, query: "In the evening when the mains voltage drops the pump drive stops with a fault", targets: [{manual: atv600, code: USF}]}
+- {id: sym-atv600-dry-well, type: symptom, machine_id: DEMO-PUMP-01, query: "Borewell pump drive stopped, the well had run out of water", targets: [{manual: atv600, code: DRYF}]}
+- {id: sym-atv600-blown-fuse, type: symptom, machine_id: DEMO-PUMP-01, query: "One of the incoming fuses in the pump panel blew and the drive tripped", targets: [{manual: atv600, code: PHF}]}
+- {id: sym-atv600-plc-comms, type: symptom, machine_id: DEMO-PUMP-01, query: "The PLC keeps losing Modbus communication with the pump drive and the drive stops", targets: [{manual: atv600, code: SLF1}]}
+- {id: sym-atv320-heavy-load-hot-motor, type: symptom, machine_id: DEMO-CONV-01, query: "Conveyor motor gets very hot and the drive trips after running fully loaded for an hour", targets: [{manual: atv320, code: OLF}]}
+- {id: sym-atv320-new-option-card, type: symptom, machine_id: DEMO-CONV-01, query: "After we swapped the option card the conveyor drive will not run and shows a configuration fault", targets: [{manual: atv320, code: CFF}]}
+- {id: sym-atv320-autotune-fails, type: symptom, machine_id: DEMO-CONV-01, query: "Autotune fails when commissioning the new conveyor motor", targets: [{manual: atv320, code: tnf}]}
+- {id: sym-atv320-runaway-downhill, type: symptom, machine_id: DEMO-CONV-01, query: "Inclined conveyor runs away when loaded going downhill and the drive trips", targets: [{manual: atv320, code: SOF}, {manual: atv320, code: OBF}]}
+- id: sym-atv12-blank-display
+  type: symptom
+  machine_id: DEMO-FAN-01
+  query: "Fan drive display stays blank and the motor does not start"
+  expected_causes:
+    - "No supply reaching the drive: check the power supply, ground and input phase connections"
+    - "Fast stop or freewheel function assigned to a logic input that is not powered (display shows nSt or FSt)"
+    - "Run command input not activated for the selected control mode (tCC, tCt)"
+    - "Reference or command channel assigned to Modbus and no command received yet"
+  expected_sources: [{manual: atv12, pages: [111]}]
+  notes: "Hand-written from ATV12 p.111 'Drive does not start, no error code displayed'"
+- {id: sym-atv12-high-mains-night, type: symptom, machine_id: DEMO-FAN-01, query: "Fan drive trips at night when the mains voltage goes high", targets: [{manual: atv12, code: OSF}]}
+- {id: sym-atv12-damaged-cable, type: symptom, machine_id: DEMO-FAN-01, query: "A forklift damaged the motor cable and now the fan drive trips as soon as it starts", targets: [{manual: atv12, code: SCF1}, {manual: atv12, code: SCF3}]}
+- {id: sym-atv12-sensor-wire, type: symptom, machine_id: DEMO-FAN-01, query: "The 4-20 mA sensor wire on the fan drive broke and the drive stopped", targets: [{manual: atv12, code: LFF1}]}
+- {id: sym-atv900-fast-lowering, type: symptom, machine_id: DEMO-HOIST-01, query: "Hoist drive trips every time the load is lowered quickly", targets: [{manual: atv900, code: OBF}]}
+- {id: sym-atv900-brake-stuck, type: symptom, machine_id: DEMO-HOIST-01, query: "Hoist brake does not release and the drive goes into fault", targets: [{manual: atv900, code: BLF}]}
+- {id: sym-atv900-loose-terminal, type: symptom, machine_id: DEMO-HOIST-01, query: "We found a loose motor terminal on the hoist after the drive tripped", targets: [{manual: atv900, code: OPF1}, {manual: atv900, code: OPF2}]}
+- {id: sym-atv900-encoder-cable, type: symptom, machine_id: DEMO-HOIST-01, query: "The encoder cable on the hoist motor got damaged and the drive stops with a speed feedback fault", targets: [{manual: atv900, code: SPF}, {manual: atv900, code: ENF}]}
+
+# --- out of scope (4): the system must escalate ---
+- {id: oos-hydraulic-press, type: out_of_scope, query: "Hydraulic press is leaking oil from the main cylinder seal"}
+- {id: oos-nonexistent-code, type: out_of_scope, machine_id: DEMO-PUMP-01, query: "Pump drive shows fault XQZ7, what should I do?"}
+- {id: oos-other-vendor, type: out_of_scope, query: "Siemens G120 drive shows F07801, how do I fix it?"}
+- {id: oos-off-topic, type: out_of_scope, query: "What will the weather be in Chennai tomorrow?"}

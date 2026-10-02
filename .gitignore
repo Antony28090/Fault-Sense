@@ -1,0 +1,26 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Secrets
+.env
+
+# Large / regenerable data
+data/manuals/*.pdf
+data/processed/
+eval_runs/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.claude/launch.json
+
+# Local working notes (kept on this machine, not published)
+CLAUDE.md
+docs/superpowers/

@@ -1,0 +1,57 @@
+# Manuals used by FaultSense. PDFs live in data/manuals/ (git-ignored); `faultsense fetch-manuals`
+# downloads them from Schneider Electric's official server and verifies the SHA-256.
+# fault_pages: first/last page of the fault-code content; index_pages: the chapter's
+# "[Name] CODE .... page" list (cross-check); safety_pages: the lockout / DC-bus procedure.
+manuals:
+  - id: atv12
+    family: ATV12
+    models: [ATV12]
+    title: Altivar 12 User Manual
+    doc_ref: BBV28581
+    version: "06"
+    file: ATV12-user-manual-EN-BBV28581-06.pdf
+    url: https://download.se.com/files?p_enDocType=User+guide&p_File_Name=ATV12-user-manual-EN-BBV28581-06.pdf&p_Doc_Ref=BBV28581
+    sha256: 6a4e9d36e91b78fa3e0ca4d599c30a6e1550176311bc3d91c173627c0ba8cd0f
+    fault_layout: table4
+    fault_pages: [111, 116]
+    index_pages: null
+    safety_pages: [5]
+  - id: atv320
+    family: ATV320
+    models: [ATV320]
+    title: Altivar Machine ATV320 Programming Manual
+    doc_ref: NVE41295
+    version: "06"
+    file: ATV320_Programming_Manual_EN_NVE41295_06.pdf
+    url: https://download.se.com/files?p_enDocType=User+guide&p_File_Name=ATV320_Programming_Manual_EN_NVE41295_06.pdf&p_Doc_Ref=NVE41295
+    sha256: f5e9bb48167a2787e3186b37a3878e57777debd814ff280b781ecc9271d6d7d5
+    fault_layout: block
+    fault_pages: [404, 420]
+    index_pages: null
+    safety_pages: [7]
+  - id: atv600
+    family: ATV600
+    models: [ATV600, ATV630, ATV650, ATV660, ATV680, ATV6A0, ATV6B0]
+    title: Altivar Process ATV600 Programming Manual
+    doc_ref: EAV64318
+    version: "14"
+    file: ATV600-Programming-Manual-EN-EAV64318-14.pdf
+    url: https://download.se.com/files?p_enDocType=User+guide&p_File_Name=ATV600-Programming-Manual-EN-EAV64318-14.pdf&p_Doc_Ref=EAV64318
+    sha256: ebda77eb868ffbb7ec2ecff5255d15819149ffb01529bc1a02759b1f2aa51661
+    fault_layout: block
+    fault_pages: [645, 687]
+    index_pages: [641, 643]
+    safety_pages: [12]
+  - id: atv900
+    family: ATV900
+    models: [ATV900, ATV930, ATV950, ATV960, ATV980, ATV9A0, ATV9B0]
+    title: Altivar Process ATV900 Programming Manual
+    doc_ref: NHA80757
+    version: "14"
+    file: ATV900-Programming-Manual-EN-NHA80757-14.pdf
+    url: https://download.se.com/files?p_enDocType=User+guide&p_File_Name=ATV900-Programming-Manual-EN-NHA80757-14.pdf&p_Doc_Ref=NHA80757
+    sha256: 58d7c936d6c549580a7571aa2b2cd4dc945527392be85549fd3df011202014a4
+    fault_layout: block
+    fault_pages: [650, 697]
+    index_pages: [645, 648]
+    safety_pages: [12]

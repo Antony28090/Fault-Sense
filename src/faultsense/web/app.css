@@ -1,0 +1,375 @@
+/* FaultSense operator page.
+   Palette: control-cabinet grey (RAL 7035) with IEC 60073 indicator colours used only for their meaning:
+   red = danger, yellow = abnormal (escalation, lockout), blue = mandatory action (steps), green = normal.
+   The one bold element is the drive's 7-segment readout; everything around it stays quiet. */
+
+:root {
+  --cabinet: #d6d8d3;
+  --cabinet-glass: rgba(214, 216, 211, 0.82);
+  --plate: #f3f4f1;
+  --plate-raised: #fafbf8;
+  --ink: #1d2224;
+  --ink-soft: #4a5256;
+  --rule: #b6bab4;
+  --rule-soft: #c9ccc6;
+  --window: #151918;
+  --window-edge: #050606;
+  --window-text: #e9ebe6;
+  --window-soft: #9aa29e;
+  --seg-on: #ff4a2e;
+  --seg-off: rgba(255, 74, 46, 0.09);
+  --danger: #c1121f;
+  --abnormal: #f2b300;
+  --abnormal-wash: #fff3c4;
+  --action: #1a5499;       /* links on cabinet grey: 5.2:1 */
+  --action-fill: #1f5fad;  /* white text on it: 6.3:1 */
+  --normal: #23784a;       /* white text on it: 5.3:1 */
+  --focus: #1f5fad;
+  --lift: 0 1px 2px rgba(29, 34, 36, 0.06), 0 10px 28px -14px rgba(29, 34, 36, 0.28);
+  --radius: 14px;
+  --gutter: 16px;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --cabinet: #202426; --cabinet-glass: rgba(32, 36, 38, 0.82);
+  --plate: #2a2f32; --plate-raised: #31373a;
+  --ink: #e6e8e3; --ink-soft: #a9b0ad; --rule: #40474b; --rule-soft: #363c40;
+  --window: #0e1110; --abnormal-wash: #3a3218;
+  --action: #7fb2ef; --action-fill: #2b6cb8; --focus: #7fb2ef;
+  --lift: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 30px -14px rgba(0, 0, 0, 0.7);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --cabinet: #202426; --cabinet-glass: rgba(32, 36, 38, 0.82);
+    --plate: #2a2f32; --plate-raised: #31373a;
+    --ink: #e6e8e3; --ink-soft: #a9b0ad; --rule: #40474b; --rule-soft: #363c40;
+    --window: #0e1110; --abnormal-wash: #3a3218;
+    --action: #7fb2ef; --action-fill: #2b6cb8; --focus: #7fb2ef;
+    --lift: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 30px -14px rgba(0, 0, 0, 0.7);
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 76px; }
+
+body {
+  margin: 0;
+  background: var(--cabinet);
+  color: var(--ink);
+  font: 400 17px/1.5 "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+}
+h1, h2, h3 { font-family: "Barlow Condensed", "Barlow", system-ui, sans-serif; line-height: 1.15; margin: 0; }
+p { margin: 0; }
+a { color: var(--action); }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; border-radius: 6px; }
+
+/* ---------- top bar ---------- */
+.bar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px var(--gutter);
+  background: var(--cabinet-glass);
+  backdrop-filter: saturate(1.4) blur(10px); -webkit-backdrop-filter: saturate(1.4) blur(10px);
+  border-bottom: 1px solid var(--rule);
+}
+.mark { font: 700 26px/1 "Barlow Condensed", sans-serif; color: var(--ink); text-decoration: none; letter-spacing: 0.01em; }
+.bar-right { display: flex; align-items: center; gap: 14px; }
+.lamp { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--ink-soft); }
+.lamp-light {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #8d948f; border: 1px solid rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.25);
+}
+.lamp[data-state="checking"] .lamp-light { animation: lamp-wait 1.6s ease-in-out infinite; }
+.lamp[data-state="ready"] .lamp-light { background: var(--normal); box-shadow: 0 0 8px rgba(46, 139, 87, 0.7); }
+.lamp[data-state="degraded"] .lamp-light { background: var(--abnormal); box-shadow: 0 0 8px rgba(242, 179, 0, 0.7); }
+.lamp[data-state="down"] .lamp-light { background: var(--danger); box-shadow: 0 0 8px rgba(193, 18, 31, 0.6); }
+@keyframes lamp-wait { 50% { opacity: 0.35; } }
+
+.icon-button {
+  width: 40px; height: 40px; display: grid; place-items: center;
+  background: transparent; border: 1px solid var(--rule); border-radius: 10px; cursor: pointer; color: var(--ink);
+}
+.icon-button:hover { background: var(--plate); }
+.icon-button svg { width: 20px; height: 20px; }
+
+/* ---------- layout ---------- */
+.layout {
+  flex: 1; width: 100%; max-width: 1200px; margin: 0 auto;
+  padding: 20px var(--gutter) 40px;
+  display: grid; gap: 24px;
+}
+@media (min-width: 960px) {
+  .layout { grid-template-columns: minmax(340px, 420px) minmax(0, 1fr); align-items: start; gap: 32px; }
+  .ask { position: sticky; top: 80px; }
+}
+
+.panel {
+  background: var(--plate);
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius);
+  box-shadow: var(--lift);
+  padding: 20px;
+}
+
+/* ---------- question panel ---------- */
+.ask-title { font-size: 30px; font-weight: 700; }
+.ask-help { color: var(--ink-soft); margin: 6px 0 16px; }
+.field-label { display: block; font-weight: 600; margin: 14px 0 8px; padding: 0; }
+.machines { border: 0; margin: 0; padding: 0; min-width: 0; }
+
+/* Machine tiles: a radio group that looks like a row of selectable equipment plates. */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.tile { position: relative; }
+.tile input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.tile label {
+  display: grid; gap: 4px; align-content: start; height: 100%;
+  padding: 10px 10px 9px; cursor: pointer;
+  background: var(--cabinet); border: 1px solid var(--rule); border-radius: 10px;
+  transition: border-color 0.15s, background-color 0.15s, transform 0.15s;
+}
+.tile label:hover { border-color: var(--ink-soft); transform: translateY(-1px); }
+.tile svg { width: 26px; height: 26px; color: var(--ink-soft); }
+.tile-name { font-weight: 600; font-size: 15px; line-height: 1.2; }
+.tile-drive { font-size: 13px; color: var(--ink-soft); }
+.tile input:checked + label { background: var(--plate-raised); border: 2px solid var(--ink); padding: 9px 9px 8px; }
+.tile input:checked + label svg { color: var(--ink); }
+.tile input:focus-visible + label { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.query-box { position: relative; }
+textarea {
+  width: 100%; display: block;
+  font: inherit; color: var(--ink);
+  background: var(--cabinet);
+  border: 1px solid var(--rule); border-radius: 10px;
+  padding: 12px 52px 12px 12px;
+  resize: vertical; min-height: 104px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+textarea:focus-visible { outline: none; border-color: var(--focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 35%, transparent); }
+.mic {
+  position: absolute; right: 8px; bottom: 8px;
+  width: 40px; height: 40px; display: grid; place-items: center;
+  border: 1px solid var(--rule); border-radius: 50%; background: var(--plate); cursor: pointer;
+}
+.mic svg { width: 20px; height: 20px; }
+.mic[aria-pressed="true"] { background: var(--danger); border-color: var(--danger); color: #fff; animation: listening 1.4s ease-in-out infinite; }
+@keyframes listening { 50% { box-shadow: 0 0 0 7px rgba(193, 18, 31, 0.18); } }
+.query-hint { font-size: 14px; color: var(--ink-soft); margin-top: 6px; }
+
+.examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 18px; }
+.example {
+  font: 500 15px/1.2 "Barlow", sans-serif; color: var(--ink);
+  background: var(--cabinet); border: 1px solid transparent; border-radius: 999px;
+  padding: 7px 13px; cursor: pointer; text-align: left;
+  transition: border-color 0.15s;
+}
+.example:hover { border-color: var(--ink-soft); }
+
+/* The pushbutton: dark, slightly raised, presses down. */
+.go {
+  width: 100%; min-height: 58px;
+  font: 700 24px/1 "Barlow Condensed", sans-serif; letter-spacing: 0.02em;
+  color: #f3f4f1; background: #1d2224;
+  border: 1px solid #000; border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -4px 0 rgba(0, 0, 0, 0.45);
+  cursor: pointer; transition: transform 0.08s;
+}
+.go:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -2px 0 rgba(0, 0, 0, 0.45); }
+.go[disabled] { cursor: progress; opacity: 0.8; }
+:root[data-theme="dark"] .go { background: #0f1213; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .go { background: #0f1213; } }
+
+.form-error { margin-top: 12px; color: var(--danger); font-weight: 600; }
+
+.recent { margin-top: 18px; padding: 0 4px; }
+.recent-title { font-size: 19px; font-weight: 600; margin-bottom: 4px; }
+.recent-list { list-style: none; margin: 0; padding: 0; }
+.recent-list button { font-size: 15px; color: var(--action); background: none; border: 0; padding: 6px 0; cursor: pointer; text-align: left; }
+
+/* ---------- display window (the drive's 7-segment readout) ---------- */
+.readout {
+  background: var(--window);
+  border: 1px solid var(--window-edge);
+  border-radius: 16px;
+  box-shadow: inset 0 0 0 3px #232927, inset 0 6px 18px rgba(0, 0, 0, 0.55), var(--lift);
+  color: var(--window-text);
+  padding: 18px 20px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 14px 24px;
+}
+.seg { height: 74px; width: auto; display: block; flex: none; }
+.seg .off { fill: var(--seg-off); }
+.seg .on { fill: var(--seg-on); }
+.seg .lit { filter: drop-shadow(0 0 4px rgba(255, 74, 46, 0.75)); }
+.seg-text { font: 700 54px/1 "Barlow Condensed", sans-serif; color: var(--seg-on); text-shadow: 0 0 10px rgba(255, 74, 46, 0.6); }
+.readout-meta { min-width: 0; flex: 1 1 220px; }
+.readout-name { font: 600 26px/1.15 "Barlow Condensed", sans-serif; }
+.readout-sub { color: var(--window-soft); margin-top: 6px; font-size: 16px; overflow-wrap: anywhere; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+.readout .cite { background: #232927; color: #ffd2c9; border-color: #3a423f; }
+.readout.testing .seg .lit { animation: segment-test 1.2s steps(2, jump-none) infinite; }
+@keyframes segment-test { 50% { opacity: 0.25; } }
+/* The single orchestrated moment: when a code is recognised, its segments switch on. */
+.readout.reveal .seg .on polygon { animation: segment-on 0.5s ease-out both; }
+@keyframes segment-on { from { opacity: 0; } 60% { opacity: 1; } to { opacity: 1; } }
+
+/* ---------- live progress while FaultSense works ---------- */
+.progress { list-style: none; margin: 0; padding: 18px 20px; display: grid; gap: 14px; }
+.stage { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 0 12px; color: var(--ink-soft); }
+.stage-mark { width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; border: 2px solid var(--rule); display: grid; place-items: center; }
+.stage-name { font-weight: 600; }
+.stage-detail { grid-column: 2; font-size: 15px; }
+.stage.active { color: var(--ink); }
+.stage.active .stage-mark { border-color: var(--action-fill); border-top-color: transparent; animation: spin 0.9s linear infinite; }
+.stage.done { color: var(--ink); }
+.stage.done .stage-mark { background: var(--normal); border-color: var(--normal); }
+.stage.done .stage-mark::after { content: ""; width: 9px; height: 5px; border: 2px solid #fff; border-top: 0; border-right: 0; transform: translateY(-1px) rotate(-45deg); }
+.stage.warn .stage-mark { background: var(--abnormal); border-color: var(--abnormal); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.elapsed { padding: 0 20px 16px 58px; font-size: 14px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+/* ---------- answer area ---------- */
+.answer { min-width: 0; display: grid; gap: 18px; align-content: start; }
+.block { background: var(--plate); border: 1px solid var(--rule-soft); border-radius: var(--radius); padding: 18px 20px; }
+.block h2 { font-size: 24px; font-weight: 600; }
+.block-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.meta { color: var(--ink-soft); font-size: 15px; }
+.button-quiet {
+  min-height: 40px; padding: 0 14px; cursor: pointer;
+  font: 600 15px/1 "Barlow", sans-serif; color: var(--ink);
+  background: var(--plate); border: 1px solid var(--rule); border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.button-quiet:hover { border-color: var(--ink-soft); }
+.button-quiet svg { width: 17px; height: 17px; }
+
+/* Safety: ANSI Z535-style signal panel. The signal word is the one place capitals belong. */
+.danger { border: 2px solid var(--danger); border-radius: var(--radius); overflow: hidden; background: var(--plate); }
+.danger-head {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--danger); color: #fff;
+  font: 700 26px/1 "Barlow Condensed", sans-serif; letter-spacing: 0.08em;
+  padding: 10px 16px;
+}
+.danger-head svg { width: 26px; height: 26px; flex: none; }
+.danger ul { margin: 0; padding: 14px 20px 16px 38px; display: grid; gap: 10px; }
+
+/* Causes: ranked, with a 10-segment bar graph for how directly the manual supports each one. */
+.causes ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+.cause { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 0 10px; }
+.cause-rank { font: 700 28px/1 "Barlow Condensed", sans-serif; color: var(--ink-soft); }
+.cause-text { font-weight: 500; }
+.meter { display: flex; gap: 3px; margin: 8px 0 6px; }
+.meter i { width: 14px; height: 8px; border-radius: 2px; background: var(--rule); }
+.meter i.on { background: var(--ink); }
+
+/* Steps: blue numbered actions ticked off as the operator goes; lockout steps carry a hazard stripe. */
+.track { display: flex; align-items: center; gap: 10px; font-size: 15px; color: var(--ink-soft); }
+.track-bar { width: 120px; height: 8px; border-radius: 999px; background: var(--rule-soft); overflow: hidden; }
+.track-fill { display: block; height: 100%; width: 0; background: var(--action-fill); border-radius: inherit; transition: width 0.25s ease-out, background-color 0.25s; }
+.track.complete .track-fill { background: var(--normal); }
+.steps ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.step { position: relative; padding: 8px 10px; border-radius: 10px; transition: background-color 0.15s; }
+.step:hover { background: var(--cabinet); }
+.step.isolate { padding-left: 24px; }
+.step.isolate::before {
+  content: ""; position: absolute; left: 6px; top: 8px; bottom: 8px; width: 8px; border-radius: 2px;
+  background: repeating-linear-gradient(-45deg, var(--abnormal) 0 6px, #1d2224 6px 12px);
+}
+.step label { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: start; cursor: pointer; }
+.step-n {
+  width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--action-fill); color: #fff;
+  font: 700 17px/1 "Barlow Condensed", sans-serif;
+  transition: background-color 0.2s;
+}
+.step input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.step input:focus-visible + .step-n { outline: 3px solid var(--focus); outline-offset: 3px; }
+.step input:checked + .step-n { background: var(--normal); }
+.step input:checked ~ .step-body .step-text { color: var(--ink-soft); }
+.isolate-note { font-weight: 600; margin-bottom: 2px; }
+.step > .cites { margin-left: 40px; }
+.done-note { margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: color-mix(in srgb, var(--normal) 14%, var(--plate)); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; font-weight: 600; }
+
+.cites { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.cite {
+  font: 600 14px/1.3 "Barlow", sans-serif; text-decoration: none; color: var(--ink); cursor: pointer;
+  border: 1px solid var(--rule); border-radius: 6px; padding: 2px 8px;
+  background: var(--cabinet);
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.cite:hover { border-color: var(--ink-soft); background: var(--plate-raised); }
+
+/* Escalation: IEC yellow, an abnormal condition for a person to handle. */
+.escalate { border: 2px solid var(--abnormal); background: var(--abnormal-wash); border-radius: var(--radius); padding: 18px 20px; }
+.escalate h2 { font-size: 26px; font-weight: 700; margin-bottom: 8px; }
+.escalate h3 { font-size: 20px; font-weight: 600; margin: 16px 0 8px; }
+.escalate .detail { color: var(--ink-soft); font-size: 14px; margin-top: 6px; }
+.collect { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.collect label { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.collect input { width: 20px; height: 20px; margin-top: 3px; accent-color: var(--ink); flex: none; }
+.copy {
+  margin-top: 16px; min-height: 46px; padding: 0 18px;
+  font: 700 19px/1 "Barlow Condensed", sans-serif; color: var(--ink);
+  background: var(--plate); border: 2px solid var(--ink); border-radius: 10px; cursor: pointer;
+}
+
+.sources summary { cursor: pointer; font: 600 20px/1.2 "Barlow Condensed", sans-serif; }
+.sources ul { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; font-size: 15px; }
+.sources li { display: flex; gap: 10px; align-items: baseline; }
+.sources .kind { color: var(--ink-soft); }
+
+.problem { border: 2px solid var(--danger); background: var(--plate); border-radius: var(--radius); padding: 18px 20px; }
+.problem h2 { font-size: 24px; margin-bottom: 6px; }
+
+/* ---------- passage viewer: a side sheet on wide screens, a bottom sheet on phones ---------- */
+.sheet {
+  /* Pinned to the visible edges: 100vh counts a phone's hidden address bar and overhangs the screen. */
+  inset: 0 0 0 auto; margin: 0; height: auto; max-height: none; width: min(520px, 100vw);
+  padding: 0; border: 0; border-left: 1px solid var(--rule);
+  background: var(--plate); color: var(--ink);
+  display: none; flex-direction: column;
+}
+.sheet[open] { display: flex; animation: sheet-in 0.22s ease-out; }
+.sheet::backdrop { background: rgba(10, 12, 12, 0.45); }
+@keyframes sheet-in { from { transform: translateX(24px); opacity: 0; } }
+.sheet-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; padding: 18px 20px 12px; border-bottom: 1px solid var(--rule-soft); }
+.sheet-where { color: var(--ink-soft); font-size: 15px; }
+.sheet-title { font-size: 24px; font-weight: 600; margin-top: 2px; }
+.sheet-body { flex: 1; overflow: auto; padding: 16px 20px; white-space: pre-wrap; font-size: 16px; line-height: 1.55; }
+.sheet-foot { padding: 14px 20px 18px; border-top: 1px solid var(--rule-soft); }
+.sheet-pdf {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px;
+  font: 700 18px/1 "Barlow Condensed", sans-serif; text-decoration: none;
+  color: #fff; background: var(--action-fill); border-radius: 10px;
+}
+@media (max-width: 640px) {
+  .sheet { inset: auto 0 0 0; width: 100%; max-width: 100%; max-height: 85vh; max-height: 85dvh; border-left: 0; border-top: 1px solid var(--rule); border-radius: 18px 18px 0 0; }
+  .sheet[open] { animation-name: sheet-up; }
+}
+@keyframes sheet-up { from { transform: translateY(24px); opacity: 0; } }
+
+/* ---------- toast ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px);
+  background: var(--ink); color: var(--cabinet);
+  padding: 10px 16px; border-radius: 999px; font-weight: 600;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; z-index: 20;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- footer ---------- */
+.foot { border-top: 1px solid var(--rule); padding: 16px var(--gutter) 24px; color: var(--ink-soft); font-size: 14px; display: grid; gap: 6px; }
+.foot p { max-width: 78ch; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
