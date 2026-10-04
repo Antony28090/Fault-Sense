@@ -35,9 +35,11 @@ class FakeRetriever:
     def __init__(self, res):
         self.res = res
         self.calls = []
+        self.code_texts = []
 
-    def retrieve(self, query, manual_ids=None):
+    def retrieve(self, query, manual_ids=None, code_text=None):
         self.calls.append((query, manual_ids))
+        self.code_texts.append(code_text)
         return self.res
 
 
@@ -57,9 +59,9 @@ class StubTelemetry:
         return [Reading(datetime(2026, 9, 29, 14, 0, tzinfo=timezone.utc), "motor_current", 12.5, "A")]
 
 
-def make_service(llm, res=None, telemetry=None, retriever=None):
+def make_service(llm, res=None, telemetry=None, retriever=None, language=None):
     return DiagnosisService(retriever or FakeRetriever(res or result()), FakeRepo(), llm, MANUALS, MACHINES,
-                            telemetry=telemetry, evidence_threshold=0.30)
+                            language=language, telemetry=telemetry, evidence_threshold=0.30)
 
 
 def test_grounded_answer_resolves_citations_to_manual_pages():
@@ -237,3 +239,75 @@ def test_passage_returns_the_manual_text_behind_a_citation():
     assert passage["text"] == FAULT.text and passage["family"] == "ATV600"
     assert (passage["page_start"], passage["heading"]) == (672, FAULT.heading_path)
     assert service.passage("atv600:nope") is None
+
+
+def indic(fn=None, error=None):
+    from faultsense.language import IndicLanguageLayer
+    from faultsense.translation import MARKER_RE, FakeTranslator
+
+    def default(text, source, target):
+        return "Pump shows " + " ".join(MARKER_RE.findall(text)) if target == "en" else f"{target}: {text}"
+
+    return IndicLanguageLayer(FakeTranslator(fn or default, error))
+
+
+def test_a_tamil_question_is_searched_in_english_and_answered_in_tamil():
+    retriever, stages = FakeRetriever(result()), []
+    response = make_service(FakeLLM([GOOD]), retriever=retriever, language=indic()).diagnose(
+        "பம்ப் டிரைவில் OHF வருகிறது", "DEMO-PUMP-01", progress=lambda stage, detail: stages.append(stage))
+    assert retriever.calls == [("Pump shows OHF", ["atv600"])]
+    assert (response.language, response.meta.query_en) == ("ta", "Pump shows OHF")
+    assert response.translation.causes[0].text == "ta: Ambient temperature too high."
+    assert stages[0] == "translate_in" and stages[-1] == "translate_out"
+    assert response.query == "பம்ப் டிரைவில் OHF வருகிறது"
+
+
+def test_the_requested_language_decides_the_answer_language():
+    hindi = make_service(FakeLLM([GOOD]), language=indic()).diagnose("Pump shows OHF", "DEMO-PUMP-01", language="hi")
+    assert hindi.language == "hi" and hindi.translation.language == "hi" and hindi.meta.query_en is None
+    english = make_service(FakeLLM([GOOD]), language=indic()).diagnose("பம்ப் டிரைவில் OHF", "DEMO-PUMP-01", language="en")
+    assert english.language == "en" and english.translation is None and english.meta.query_en == "Pump shows OHF"
+
+
+def test_a_broken_translator_still_gives_the_english_diagnosis():
+    response = make_service(FakeLLM([GOOD]), language=indic(error=OSError("no model"))).diagnose(
+        "पंप की ड्राइव पर OHF", "DEMO-PUMP-01")
+    assert response.status == "diagnosis" and response.language == "hi"
+    assert response.translation.available is False and response.meta.query_en is None
+    assert response.probable_causes[0].cause == "Ambient temperature too high."
+
+
+def test_english_questions_get_no_translation_stages():
+    stages = []
+    make_service(FakeLLM([GOOD]), language=indic()).diagnose(
+        "Pump shows OHF", "DEMO-PUMP-01", progress=lambda stage, detail: stages.append(stage))
+    assert "translate_in" not in stages and "translate_out" not in stages
+
+
+def test_an_escalation_in_hindi_still_reports_the_language():
+    response = make_service(FakeLLM([]), result(with_code=False, score=0.05), language=indic()).diagnose("मौसम कैसा है")
+    assert response.status == "escalate" and response.language == "hi"
+    assert response.translation.available is True and response.translation.causes == []
+
+
+def test_a_fault_code_written_with_its_name_is_shown_as_the_bare_code():
+    named = GOOD | {"probable_causes": [GOOD["probable_causes"][0] | {"fault_code": "[Current Limitation] OHF"}]}
+    response = make_service(FakeLLM([named])).diagnose("Pump shows OHF", "DEMO-PUMP-01")
+    assert response.status == "diagnosis" and response.meta.guard_retries == 0
+    assert response.probable_causes[0].fault_code == "OHF"
+
+
+def test_the_prompt_tells_the_llm_which_drive_models_the_manual_covers():
+    llm = FakeLLM([GOOD])
+    make_service(llm).diagnose("Pump shows OHF", "DEMO-PUMP-01")
+    assert 'models="' + ", ".join(SPECS["atv600"].models) + '"' in llm.calls[0]["user"]
+    assert "ATV630" in SPECS["atv600"].models
+
+
+def test_a_hindi_or_tamil_question_is_also_checked_for_codes_as_typed():
+    retriever = FakeRetriever(result())
+    make_service(FakeLLM([GOOD]), retriever=retriever, language=indic()).diagnose("पंप पर ohf आ रहा है", "DEMO-PUMP-01")
+    assert retriever.code_texts == ["पंप पर ohf आ रहा है"]
+    english = FakeRetriever(result())
+    make_service(FakeLLM([GOOD]), retriever=english).diagnose("Pump shows OHF", "DEMO-PUMP-01")
+    assert english.code_texts == [None]

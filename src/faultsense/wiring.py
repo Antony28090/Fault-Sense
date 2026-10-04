@@ -51,6 +51,26 @@ def build_catalog(settings: Settings | None = None):
     )
 
 
+def build_translator(settings: Settings | None = None):
+    s = settings or get_settings()
+    if s.translation == "off":
+        return None
+    if s.translation != "indictrans2":
+        raise ValueError(f"Unknown TRANSLATION {s.translation!r}: use indictrans2 or off")
+    from faultsense.translation import IndicTrans2Translator
+
+    return IndicTrans2Translator(python=s.translation_python_path, token=s.hf_token or None,
+                                 device=s.translation_device, idle_minutes=s.translation_idle_minutes,
+                                 beams=s.translation_beams)
+
+
+def build_language_layer(settings: Settings | None = None):
+    from faultsense.language import IdentityLanguageLayer, IndicLanguageLayer
+
+    translator = build_translator(settings)
+    return IndicLanguageLayer(translator) if translator else IdentityLanguageLayer()
+
+
 def build_components(settings: Settings | None = None) -> Components:
     s = settings or get_settings()
     manuals = {spec.id: spec for spec in load_manuals(s.data_dir / "manuals.yaml")}
@@ -68,4 +88,5 @@ def build_service(components: Components | None = None):
 
     c = components or build_components()
     return DiagnosisService(c.retriever, c.repo, get_provider(c.settings), c.manuals, c.machines,
+                            language=build_language_layer(c.settings),
                             evidence_threshold=c.settings.evidence_threshold)

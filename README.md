@@ -69,6 +69,19 @@ faultsense serve                        # operator page at http://127.0.0.1:8000
 
 To use it from a phone on the same Wi-Fi, run `faultsense serve --host 0.0.0.0` and open `http://<this computer's IP>:8000/`. There is no login, so only do this on a network you trust.
 
+### Hindi and Tamil
+
+The language switch in the top bar (English · हिन्दी · தமிழ்) changes the page, the microphone language and the answer language. Questions typed or spoken in Hindi or Tamil are translated to English, diagnosed exactly as English questions are, and the checked English answer is translated back. "Show English" switches to the original, and the DANGER panel always shows both languages. Fault codes, parameter names, numbers and page references are protected during translation: a sentence that would lose one is shown in English instead.
+
+Translation runs locally with AI4Bharat's IndicTrans2 (IIT Madras, MIT licence). Its model code needs an older transformers version than FaultSense, so it runs in its own environment, `.venv-indic`, as a helper that starts on the first Hindi or Tamil question and stops after 15 minutes without one (`TRANSLATION_IDLE_MINUTES`) or when FaultSense stops; English-only use never starts it. While running it uses about 1.2 GB of RAM; the environment and models take about 3 GB of disk.
+
+One-time setup:
+
+1. The models are gated on Hugging Face: accept the terms on [indictrans2-en-indic-dist-200M](https://huggingface.co/ai4bharat/indictrans2-en-indic-dist-200M) and [indictrans2-indic-en-dist-200M](https://huggingface.co/ai4bharat/indictrans2-indic-en-dist-200M), then put a read token in `.env` as `HF_TOKEN`.
+2. Run `faultsense setup-translation` (builds `.venv-indic`, downloads the models and translates two test sentences).
+
+Check it any time with `faultsense translate "Wait 15 minutes." --to ta`. `TRANSLATION=off` answers in English only. The page's Hindi and Tamil wording and the Hindi/Tamil test questions were written by Claude and need a native speaker's check.
+
 ### HTTP API
 
 ```bash
@@ -86,12 +99,14 @@ faultsense eval run                     # full pipeline
 faultsense eval compare eval_runs/<run A> eval_runs/<run B>
 ```
 
-Two scenario sets, both `reviewed: false` until a person checks them:
+Four scenario sets, all `reviewed: false` until a person checks them:
 
 - `data/eval/scenarios.yaml`: 40 drafts written from the manuals.
+- `data/eval/scenarios_indic.yaml`: 16 Hindi and Tamil questions adapted from the real-world set; the scorecard adds "Translation shown in English", the share of translated sentences that fell back to English.
+- `data/eval/scenarios_operator.yaml`: 25 questions in shop-floor wording: typos, codes misread off the display (0HF) or typed with a space (SCF 1), romanised Hindi and Tamil, symptoms with no code, a drive model named instead of a machine, and three questions that should be refused.
 - `data/eval/scenarios_web.yaml`: 57 real customer questions from Schneider Electric's public FAQ pages, each with its `source_url` and Schneider's answer paraphrased in `reference_answer`. Run it with `faultsense eval run --scenarios data/eval/scenarios_web.yaml`.
 
-On the real-world set (2026-10-02, Claude rewrite + local `qwen3.5:4b`, with the drive-model check): correct cause in top 3 94.3%, fault code detected 100%, hit@5 96.2%, hallucination 0%, 4 of 4 questions about products without a manual refused (ATV61, ATV71, ATV312, ATS48), false escalation 3.8% (2 of 53), answer time 15 s typical / 23 s slow. The remaining misses are status-message questions (NLP, SOC, a zero-speed display) and a braking-unit fault the local model declined; FaultSense escalates rather than guesses in those cases.
+Measured 2026-10-04 (Claude rewrite + local `qwen3.5:4b`): on the real-world set, correct cause in top 3 96.2% (51 of 53), fault code detected 100%, hit@5 96.2%, hallucination in the final answer 0%, 4 of 4 questions about products without a manual refused, false escalation 1.9%, answer time 15 s typical / 24 s slow. Operator wording: correct cause 95.2% (20 of 21), no false escalations, 3 of 3 refused. Hindi and Tamil: correct cause 92.9% (13 of 14), hit@5 100%, 2.0% of translated sentences shown in English, 24 s typical. The weakest area is a drive that is not running but shows no fault (rdY, a zero speed display): the manual explains these in setup chapters that rank below fault pages.
 
 ### Tuning
 

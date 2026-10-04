@@ -43,3 +43,20 @@ def test_response_round_trips_through_json():
         meta=Meta(retrieval_top_score=1.0, llm_called=True),
     )
     assert DiagnosisResponse.model_validate_json(response.model_dump_json()) == response
+
+
+def test_responses_carry_an_optional_translation_and_the_english_question():
+    from faultsense.diagnosis.schema import AnswerTranslation, TranslatedText
+
+    response = DiagnosisResponse(
+        status="escalate", query="q", machine_id=None, language="en", matched_fault_codes=[],
+        probable_causes=[], corrective_actions=[], safety_warnings=[], escalation=None, sources=[],
+        meta=Meta(retrieval_top_score=0.0),
+    )
+    assert response.translation is None and response.meta.query_en is None
+    response.translation = AnswerTranslation(language="ta", available=True,
+                                             causes=[TranslatedText(text="அதிக வெப்பம்", fallback=False)])
+    response.meta.query_en = "OHF on the pump"
+    again = DiagnosisResponse.model_validate_json(response.model_dump_json())
+    assert again.translation.causes[0].text == "அதிக வெப்பம்" and again.meta.query_en == "OHF on the pump"
+    assert again.translation.steps == [] and again.translation.note == ""

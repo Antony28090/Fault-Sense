@@ -7,7 +7,7 @@ import re
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
@@ -33,6 +33,12 @@ class Catalog:
 class DiagnoseRequest(BaseModel):
     query: str = Field(max_length=2000, description="The operator's description or fault code.")
     machine_id: str | None = Field(default=None, description="Restricts sources to this machine's manual.")
+    language: Literal["auto", "en", "hi", "ta"] = Field(
+        default="auto", description="Answer language; auto answers in the question's language.")
+
+    @property
+    def answer_language(self) -> str | None:
+        return None if self.language == "auto" else self.language
 
     @field_validator("query")
     @classmethod
@@ -83,7 +89,7 @@ def create_app(service_factory: Callable[[], object], catalog: Catalog | None = 
     @app.post("/diagnose", response_model=DiagnosisResponse)
     def diagnose(request: DiagnoseRequest) -> DiagnosisResponse:
         try:
-            return service().diagnose(request.query, request.machine_id)
+            return service().diagnose(request.query, request.machine_id, language=request.answer_language)
         except UnknownMachine as exc:
             raise HTTPException(status_code=404, detail=f"Unknown machine_id {exc.machine_id!r}") from exc
 
@@ -96,7 +102,8 @@ def create_app(service_factory: Callable[[], object], catalog: Catalog | None = 
             try:
                 response = service().diagnose(
                     request.query, request.machine_id,
-                    progress=lambda stage, detail: events.put({"event": "stage", "stage": stage, **detail}))
+                    progress=lambda stage, detail: events.put({"event": "stage", "stage": stage, **detail}),
+                    language=request.answer_language)
                 events.put({"event": "result", "response": response.model_dump(mode="json")})
             except UnknownMachine as exc:
                 events.put({"event": "error", "status": 404, "detail": f"Unknown machine_id {exc.machine_id!r}"})

@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from functools import cached_property
 
-from faultsense.codes import LABEL_RE, bracket_labels, code_key, code_like_tokens, confusable_variants, label_key
+from faultsense.codes import (LABEL_RE, bare_code, bracket_labels, code_key, code_like_tokens, confusable_variants,
+                             label_key)
 from faultsense.diagnosis.schema import LLMDiagnosis
 
 # Generic electrical terms that are not Altivar identifiers.
@@ -25,18 +27,43 @@ class KnownIdentifiers:
         return key in self.codes or bool(confusable_variants(key) & self.codes)
 
     def knows_label(self, label: str) -> bool:
-        return label_key(label) in self.labels
+        key = label_key(label)
+        return key in self.labels or _loose(key) in self._loose_labels
+
+    @cached_property
+    def _loose_labels(self) -> frozenset[str]:
+        return frozenset(_loose(key) for key in self.labels)
+
+
+def _loose(key: str) -> str:
+    # Some manual names join words with underscores ([BRH_b4_freq]); answers often write spaces instead.
+    return re.sub(r"[\s_]+", " ", key).strip()
+
+
+def _same_text(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip(" .;:!").lower()
 
 
 def unknown_identifiers(text: str, known: KnownIdentifiers) -> list[str]:
     """Bracketed names and code-like tokens in `text` that appear nowhere in the manuals."""
     found = [f"[{label}]" for label in bracket_labels(text) if not known.knows_label(label)]
     for token in code_like_tokens(LABEL_RE.sub(" ", text)):
-        if token.upper() in GENERIC_TERMS or _SOURCE_ID_RE.match(token):
+        if _SOURCE_ID_RE.match(token):
             continue
-        if not known.knows_code(token):
+        # A plural with a lowercase "s" (IDs, PLCs, OHFs) is the term or code itself.
+        forms = [token] + ([token[:-1]] if len(token) > 2 and token.endswith("s") else [])
+        if not any(form.upper() in GENERIC_TERMS or known.knows_code(form) for form in forms):
             found.append(token)
     return list(dict.fromkeys(found))
+
+
+def _fault_code_unknowns(fault_code: str, known: KnownIdentifiers) -> list[str]:
+    """The code field may carry the manual's name as well ("[Autotuning Error] TNF"); both must be known."""
+    found = [f"[{label}]" for label in bracket_labels(fault_code) if not known.knows_label(label)]
+    code = bare_code(fault_code)
+    if code and not known.knows_code(code):
+        found.append(code)
+    return found
 
 
 def _citations(label: str, ids: list[str], valid: set[str]) -> list[str]:
@@ -52,11 +79,15 @@ def check_llm_output(out: LLMDiagnosis, valid_ids: set[str], safety_ids: set[str
     violations: list[str] = []
     if not out.probable_causes:
         violations.append("no probable causes returned")
+    seen: dict[str, int] = {}
     for n, cause in enumerate(out.probable_causes, 1):
         violations += _citations(f"cause {n}", cause.source_ids, valid_ids)
         violations += [f"cause {n}: unknown identifier {x}" for x in unknown_identifiers(cause.cause, known)]
-        if cause.fault_code and not known.knows_code(cause.fault_code):
-            violations.append(f"cause {n}: unknown identifier {cause.fault_code}")
+        if cause.fault_code:
+            violations += [f"cause {n}: unknown identifier {x}" for x in _fault_code_unknowns(cause.fault_code, known)]
+        first = seen.setdefault(_same_text(cause.cause), n)
+        if first != n:
+            violations.append(f"cause {n} repeats cause {first}: list each cause once")
     for n, step in enumerate(out.corrective_actions, 1):
         violations += _citations(f"step {n}", step.source_ids, valid_ids)
         violations += [f"step {n}: unknown identifier {x}" for x in unknown_identifiers(step.action, known)]

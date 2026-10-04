@@ -43,3 +43,16 @@ def test_recognised_codes_and_lookalikes_are_listed_for_the_llm():
 def test_system_prompt_lists_several_fitting_causes_instead_of_refusing():
     assert 'Use status "insufficient_evidence" only when the SOURCES do not describe' in SYSTEM_PROMPT
     assert "RECOGNISED FAULT CODES" in SYSTEM_PROMPT
+
+
+def test_sources_list_every_drive_model_their_manual_covers():
+    source = PromptSource("S1", "Altivar Process ATV900 Programming Manual", "ATV900", 653, 653,
+                          "Error codes > BUF [DB unit sh. circuit]", "fault", "Fault code BUF",
+                          models=("ATV900", "ATV930", "ATV950"))
+    assert 'models="ATV900, ATV930, ATV950"' in build_user_prompt("bUF on the ATV930", [source])
+    assert 'model="ATV600"' in build_user_prompt("q", SOURCES)  # no list: the family alone
+    assert "models attribute" in SYSTEM_PROMPT
+
+
+def test_the_answer_is_always_written_in_english():
+    assert "always in English, whatever language the OPERATOR QUERY is in" in SYSTEM_PROMPT

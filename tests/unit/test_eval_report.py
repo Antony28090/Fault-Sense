@@ -51,3 +51,15 @@ def test_run_config_records_the_rewrite_model():
     default = run_config(Settings(_env_file=None, llm_model="claude-sonnet-5-5"), "full",
                          Path("data/eval/scenarios.yaml"), {})
     assert (default["rewrite_provider"], default["rewrite_model"]) == ("anthropic", "claude-sonnet-5-5")
+
+
+def test_compare_runs_tolerates_runs_saved_before_a_metric_existed(tmp_path):
+    results = [ScenarioResult("a", "fault_code", False, hit_at_5=True)]
+    old_summary = summarize(results)
+    del old_summary["metrics"]["translation_fallback"]
+    a = save_run(results, old_summary, {"mode": "full"}, tmp_path,
+                 now=datetime(2026, 9, 29, 12, 0, 0, tzinfo=timezone.utc), sha="aaaaaaa")
+    b = save_run(results, summarize(results), {"mode": "full"}, tmp_path,
+                 now=datetime(2026, 9, 29, 13, 0, 0, tzinfo=timezone.utc), sha="bbbbbbb")
+    rows, _ = compare_runs(a, b)
+    assert ("Translation shown in English", "n/a", "n/a", "n/a") in rows

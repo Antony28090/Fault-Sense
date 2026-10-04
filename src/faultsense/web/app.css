@@ -373,3 +373,35 @@ textarea:focus-visible { outline: none; border-color: var(--focus); box-shadow: 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* ---------- Hindi and Tamil ---------- */
+body { font-family: "Barlow", "Noto Sans Devanagari", "Noto Sans Tamil", system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, h2, h3, .mark, .go, .readout-name, .copy, .sheet-pdf, .cause-rank, .step-n {
+  font-family: "Barlow Condensed", "Noto Sans Devanagari", "Noto Sans Tamil", "Barlow", system-ui, sans-serif;
+}
+:root:lang(hi) body, :root:lang(ta) body { line-height: 1.6; }
+:root:lang(ta) h1, :root:lang(ta) h2, :root:lang(ta) h3 { line-height: 1.35; }
+:root:lang(hi) .danger-head, :root:lang(ta) .danger-head, :root:lang(hi) .go, :root:lang(ta) .go { letter-spacing: 0; }
+
+.lang-switch { display: inline-flex; border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+.lang-switch button {
+  min-height: 36px; padding: 0 10px; border: 0; background: transparent; cursor: pointer; color: var(--ink-soft);
+  font: 600 14px/1 "Barlow", "Noto Sans Devanagari", "Noto Sans Tamil", sans-serif;
+}
+.lang-switch button + button { border-left: 1px solid var(--rule); }
+.lang-switch button[aria-pressed="true"] { background: var(--ink); color: var(--cabinet); }
+@media (max-width: 560px) {
+  #lamp-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .lang-switch button { padding: 0 7px; }
+  .bar-right { gap: 8px; }
+  .mark { font-size: 22px; }
+  .bar .icon-button { width: 36px; height: 36px; }
+}
+
+.danger .orig { color: var(--ink-soft); font-size: 15px; margin-top: 4px; }
+.tag-en {
+  display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px;
+  border: 1px solid var(--rule); color: var(--ink-soft); font-size: 13px; vertical-align: 1px;
+}
+.notice { padding: 10px 14px; border-radius: 10px; border: 1px solid var(--rule); background: var(--plate); color: var(--ink-soft); }
+.understood { color: var(--window-soft); font-size: 15px; }

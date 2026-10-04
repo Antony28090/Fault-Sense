@@ -23,6 +23,7 @@ METRIC_LABELS = {
     "hallucination_final": "Hallucination (final answer)",
     "out_of_scope_refusal": "Correct out-of-scope refusal",
     "false_escalation": "False escalation (in scope)",
+    "translation_fallback": "Translation shown in English",
 }
 
 
@@ -36,7 +37,8 @@ def scorecard_title(summary: dict, mode: str) -> str:
 
 
 def scorecard_rows(summary: dict) -> list[tuple[str, str, str]]:
-    rows = [(label, _fmt(summary["metrics"][key]["value"]), str(summary["metrics"][key]["n"]))
+    metrics = summary["metrics"]
+    rows = [(label, _fmt(metrics.get(key, {}).get("value")), str(metrics.get(key, {}).get("n", 0)))
             for key, label in METRIC_LABELS.items()]
     latency = summary["latency_ms"]
     rows.append(("Latency p50 / p95 (ms)", f"{latency['p50'] or 'n/a'} / {latency['p95'] or 'n/a'}", ""))
@@ -126,8 +128,8 @@ def compare_runs(a: Path, b: Path) -> tuple[list[tuple[str, str, str, str]], lis
     summary_b, results_b = load_run(b)
     rows = []
     for key, label in METRIC_LABELS.items():
-        value_a = summary_a["metrics"][key]["value"]
-        value_b = summary_b["metrics"][key]["value"]
+        value_a = summary_a["metrics"].get(key, {}).get("value")  # older runs lack newer metrics
+        value_b = summary_b["metrics"].get(key, {}).get("value")
         delta = "n/a" if value_a is None or value_b is None else f"{(value_b - value_a) * 100:+.1f} pts"
         rows.append((label, _fmt(value_a), _fmt(value_b), delta))
     flips = [

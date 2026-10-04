@@ -29,6 +29,8 @@ class ScenarioResult:
     refusal_correct: bool | None = None
     false_escalation: bool | None = None
     latency_ms: int | None = None
+    translation_fallbacks: int = 0  # translated sentences shown in English because they failed the check
+    translation_total: int = 0
     error: str | None = None
     answer: dict | None = None
 
@@ -68,6 +70,7 @@ def summarize(results: list[ScenarioResult]) -> dict:
     latencies = sorted(r.latency_ms for r in results if r.latency_ms is not None)
     correct = sum(r.citations_correct for r in results)
     total = sum(r.citations_total for r in results)
+    translated = sum(r.translation_total for r in results)
     return {
         "scenarios": len(results),
         "reviewed": sum(r.reviewed for r in results),
@@ -81,6 +84,10 @@ def summarize(results: list[ScenarioResult]) -> dict:
             "hallucination_final": _rate(r.final_hallucination for r in results),
             "out_of_scope_refusal": _rate(r.refusal_correct for r in results),
             "false_escalation": _rate(r.false_escalation for r in results),
+            "translation_fallback": {
+                "value": (sum(r.translation_fallbacks for r in results) / translated) if translated else None,
+                "n": translated,
+            },
         },
         "latency_ms": {"p50": _percentile(latencies, 50), "p95": _percentile(latencies, 95)},
     }

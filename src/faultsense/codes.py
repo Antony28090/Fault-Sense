@@ -57,6 +57,11 @@ def bracket_labels(text: str) -> list[str]:
     return [match.strip() for match in LABEL_RE.findall(text)]
 
 
+def bare_code(text: str) -> str:
+    """A fault code written with its bracketed name, as the manuals print it: "[Autotuning Error] TNF" -> "TNF"."""
+    return re.sub(r"\s+", " ", LABEL_RE.sub(" ", text)).strip()
+
+
 def label_key(label: str) -> str:
     return re.sub(r"\s+", " ", label.strip().strip("[]").strip()).lower()
 

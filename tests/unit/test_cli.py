@@ -59,3 +59,33 @@ def test_diagnose_prints_bracketed_names_and_json(monkeypatch):
     assert plain.exit_code == 0 and "[Current Limitation]" in plain.output
     as_json = runner.invoke(app, ["diagnose", "OCF", "--json"])
     assert as_json.exit_code == 0 and '"status": "diagnosis"' in as_json.output
+
+
+def test_translate_command_shows_the_shielded_translation(monkeypatch):
+    from faultsense import wiring
+    from faultsense.translation import FakeTranslator
+
+    monkeypatch.setattr(wiring, "build_translator", lambda settings=None: FakeTranslator())
+    result = CliRunner().invoke(app, ["translate", "Check OHF for 15 minutes.", "--to", "ta"])
+    assert result.exit_code == 0 and "ta: Check OHF for 15 minutes." in result.output
+    monkeypatch.setattr(wiring, "build_translator", lambda settings=None: None)
+    assert CliRunner().invoke(app, ["translate", "x"]).exit_code == 1
+
+
+def test_setup_translation_installs_the_environment_then_warms_up(monkeypatch):
+    import subprocess
+
+    from faultsense import wiring
+    from faultsense.translation import FakeTranslator
+
+    ran = []
+    monkeypatch.setattr(subprocess, "run", lambda command, check: ran.append([str(part) for part in command]))
+    translator = FakeTranslator()
+    translator.close = lambda: None
+    monkeypatch.setattr(wiring, "build_translator", lambda settings=None: translator)
+    result = CliRunner().invoke(app, ["setup-translation"])
+    assert result.exit_code == 0 and "Ready" in result.output
+    installs = [" ".join(command) for command in ran]
+    assert any("transformers==4.57.6" in c and "indictranstoolkit==1.1.1" in c for c in installs)
+    assert any("download.pytorch.org/whl/cpu" in c for c in installs)
+    assert [(source, target) for _, source, target in translator.calls] == [("en", "hi"), ("ta", "en")]

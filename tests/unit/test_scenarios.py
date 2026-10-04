@@ -66,3 +66,21 @@ def test_committed_web_scenarios_file_shape():
             assert all(src.manual in SPECS for src in s.expected_sources)
         if s.type == "fault_code":
             assert s.expected_fault_codes
+
+
+def test_committed_indic_scenarios_file_shape():
+    from faultsense.translation import detect_script
+
+    scenarios = load_scenarios(DATA_DIR / "eval" / "scenarios_indic.yaml")
+    machines = load_machines(DATA_DIR / "machines.yaml", list(SPECS.values()))
+    assert len(scenarios) == 16
+    assert Counter(detect_script(s.query) for s in scenarios) == {"hi": 8, "ta": 8}
+    assert all(s.id.startswith("indic-") and s.reviewed is False for s in scenarios)
+    assert all(s.machine_id is None or s.machine_id in machines for s in scenarios)
+    for s in scenarios:
+        if s.type == "out_of_scope":
+            assert s.expected_behavior == "escalate" and not s.expected_sources
+        else:
+            assert s.expected_behavior == "diagnose" and s.expected_sources and s.expected_causes
+        if s.type == "fault_code":
+            assert s.expected_fault_codes

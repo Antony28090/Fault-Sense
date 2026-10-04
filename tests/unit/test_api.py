@@ -8,9 +8,11 @@ from faultsense.diagnosis.service import UnknownMachine
 class FakeService:
     def __init__(self):
         self.calls = []
+        self.languages = []
 
-    def diagnose(self, query, machine_id=None, progress=None):
+    def diagnose(self, query, machine_id=None, progress=None, language=None):
         self.calls.append((query, machine_id))
+        self.languages.append(language)
         if progress:
             progress("search", {"models": []})
             progress("found", {"codes": ["OHF"], "pages": 3, "top": None})
@@ -166,3 +168,19 @@ def test_passages_endpoint_returns_the_manual_text():
     client = TestClient(create_app(lambda: service))
     assert client.get("/passages/atv600:f:OHF").json()["text"] == "Fault code OHF"
     assert client.get("/passages/atv600:f:NOPE").status_code == 404
+
+
+def test_the_answer_language_is_forwarded_and_auto_means_detect():
+    client, service = make_client()
+    client.post("/diagnose", json={"query": "OHF", "language": "ta"})
+    client.post("/diagnose", json={"query": "OHF"})
+    stream_events(client, {"query": "OHF", "language": "hi"})
+    assert service.languages == ["ta", None, "hi"]
+    assert client.post("/diagnose", json={"query": "OHF", "language": "fr"}).status_code == 422
+
+
+def test_the_page_loads_its_word_list_before_the_app():
+    client, _ = make_client()
+    page = client.get("/").text
+    assert client.get("/static/i18n.js").status_code == 200
+    assert page.index("/static/i18n.js") < page.index("/static/app.js")

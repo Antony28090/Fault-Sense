@@ -69,3 +69,21 @@ def test_catalog_lists_machines_manual_files_and_models():
     assert catalog.engine == {"diagnosis": "ollama qwen3.5:4b", "rewrite": "anthropic claude-sonnet-5-5"}
     off = build_catalog(Settings(_env_file=None, query_rewrite=False, llm_model="claude-sonnet-5-5"))
     assert off.engine == {"diagnosis": "anthropic claude-sonnet-5-5", "rewrite": None}
+
+
+def test_language_layer_follows_the_translation_setting():
+    from faultsense.language import IdentityLanguageLayer, IndicLanguageLayer
+    from faultsense.translation import IndicTrans2Translator
+    from faultsense.wiring import build_language_layer, build_translator
+
+    on = Settings(_env_file=None, translation="indictrans2", translation_device="cpu", hf_token="hf_test")
+    translator = build_translator(on)
+    assert isinstance(translator, IndicTrans2Translator) and translator._process is None  # nothing started yet
+    assert (translator._device, translator._token) == ("cpu", "hf_test")
+    assert translator._python == str(on.translation_python_path) and translator._idle == 15 * 60
+    assert isinstance(build_language_layer(on), IndicLanguageLayer)
+    off = Settings(_env_file=None, translation="off")
+    assert build_translator(off) is None and isinstance(build_language_layer(off), IdentityLanguageLayer)
+    import pytest
+    with pytest.raises(ValueError, match="TRANSLATION"):
+        build_translator(Settings(_env_file=None, translation="google"))

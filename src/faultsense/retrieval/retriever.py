@@ -109,8 +109,14 @@ class HybridRetriever:
                     matches.append(CodeMatch(hit, token, fuzzy))
         return matches
 
-    def retrieve(self, query: str, manual_ids: list[str] | None = None) -> RetrievalResult:
+    def retrieve(self, query: str, manual_ids: list[str] | None = None,
+                 code_text: str | None = None) -> RetrievalResult:
+        """`code_text`: more text to look for typed fault codes in, such as the operator's Hindi or Tamil
+        question, whose codes translation may have changed."""
         codes = self.detect_codes(query, manual_ids)
+        if code_text:
+            seen = {m.hit.chunk_id for m in codes}
+            codes += [m for m in self.detect_codes(code_text, manual_ids) if m.hit.chunk_id not in seen]
         expanded = self._rewriter.rewrite(query) if (self._rewriter and not codes) else None
         search_text = expanded or query
         texts = [query] + ([expanded] if expanded else [])

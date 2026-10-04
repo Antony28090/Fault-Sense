@@ -74,6 +74,22 @@ class Meta(BaseModel):
     llm_note: str = ""  # the LLM's own explanation when it declined; for engineers, not shown as the reason
     search_query: str | None = None  # the LLM rewrite used for search when no code was typed; for engineers
     named_models: list[str] = []  # drive models the operator named, e.g. ["ATV630"]
+    query_en: str | None = None  # the English the pipeline worked from, when the question was translated
+
+
+class TranslatedText(BaseModel):
+    text: str  # the translation, or the English original when fallback is True
+    fallback: bool  # True: the translation failed the protection check, so English is shown
+
+
+class AnswerTranslation(BaseModel):
+    """The answer in Hindi or Tamil, aligned item by item with the English fields (the master copy)."""
+    language: Literal["hi", "ta"]
+    available: bool  # False: the translator was missing or failed, and the lists are empty
+    note: str = ""  # why it was unavailable, for engineers
+    causes: list[TranslatedText] = []
+    steps: list[TranslatedText] = []
+    safety_warnings: list[TranslatedText] = []
 
 
 class DiagnosisResponse(BaseModel):
@@ -88,6 +104,7 @@ class DiagnosisResponse(BaseModel):
     escalation: Escalation | None
     sources: list[SourceRef]
     meta: Meta
+    translation: AnswerTranslation | None = None  # None when the answer is English
 
 
 class LLMCause(BaseModel):

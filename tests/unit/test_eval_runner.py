@@ -16,7 +16,7 @@ class FakeRetriever:
         self.result = result
         self.calls = []
 
-    def retrieve(self, query, manual_ids=None):
+    def retrieve(self, query, manual_ids=None, code_text=None):
         self.calls.append((query, manual_ids))
         return self.result
 
@@ -39,7 +39,7 @@ def test_retrieval_only_run_scores_hit_and_code_match():
 
 def test_errors_are_recorded_and_the_run_continues():
     class Broken:
-        def retrieve(self, query, manual_ids=None):
+        def retrieve(self, query, manual_ids=None, code_text=None):
             raise RuntimeError("db down")
 
     results = run_eval([SCENARIO, SCENARIO.model_copy(update={"id": "s2"})], Broken(), MACHINES)
@@ -133,3 +133,15 @@ def test_full_run_scores_retrieval_from_the_diagnosis_without_searching_twice():
     assert (r.hit_at_5, r.code_match, r.top_score, r.detected_codes) == (True, True, 1.0, ["OHF"])
     assert r.retrieved == [{"manual": "atv600", "page_start": 672, "page_end": 672, "kind": "fault",
                             "heading": "h", "score": 1.0}]
+
+
+def test_translated_answers_report_their_fallbacks():
+    from faultsense.diagnosis.schema import AnswerTranslation, TranslatedText
+
+    response = _diagnosis()
+    response.translation = AnswerTranslation(language="ta", available=True,
+                                             causes=[TranslatedText(text="x", fallback=True)],
+                                             steps=[TranslatedText(text="y", fallback=False)])
+    scorer = AnswerScorer(HashEmbedder().embed, KNOWN, 0.75)
+    [r] = run_eval([SCENARIO], FakeRetriever(_result()), MACHINES, FakeService(response), scorer)
+    assert (r.translation_fallbacks, r.translation_total) == (1, 2)

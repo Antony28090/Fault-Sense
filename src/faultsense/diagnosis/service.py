@@ -8,6 +8,7 @@ from typing import Callable
 
 from pydantic import ValidationError
 
+from faultsense.codes import bare_code
 from faultsense.diagnosis.guard import KnownIdentifiers, check_llm_output
 from faultsense.drives import named_drive_models
 from faultsense.diagnosis.prompt import SYSTEM_PROMPT, PromptSource, build_user_prompt
@@ -103,35 +104,43 @@ class DiagnosisService:
                 "title": spec.title if spec else chunk.manual_id, "heading": chunk.heading_path,
                 "page_start": chunk.page_start, "page_end": chunk.page_end, "kind": chunk.kind, "text": chunk.text}
 
-    def diagnose(self, query: str, machine_id: str | None = None, progress: Progress | None = None) -> DiagnosisResponse:
+    def diagnose(self, query: str, machine_id: str | None = None, progress: Progress | None = None,
+                 language: str | None = None) -> DiagnosisResponse:
+        """`language` is the answer language ("en", "hi", "ta"); None answers in the question's language."""
         started = self._clock()
         emit = progress or (lambda stage, detail: None)
         if machine_id is not None and machine_id not in self._machines:
             raise UnknownMachine(machine_id)
-        text_en, language = self._language.to_english(query)
+        source = self._language.detect(query)
+        if source != "en":
+            emit("translate_in", {"language": source})
+        text_en, source = self._language.to_english(query)
+        answer_language = language if language in ("en", "hi", "ta") else source
+        query_en = text_en if text_en != query else None
         named = named_drive_models(text_en)
         emit("search", {"models": named})
         covered = sorted({self._model_manual[m] for m in named if m in self._model_manual})
         if named and not covered:
             # Only drives without a manual were named: answering from another drive's manual would mislead.
-            meta = Meta(retrieval_top_score=0.0, named_models=named)
+            meta = Meta(retrieval_top_score=0.0, named_models=named, query_en=query_en)
             reason = (f"FaultSense has no manual for the {', '.join(named)}. "
                       f"It has manuals for these drives: {self._coverage()}.")
-            return self._finish(self._escalation(query, machine_id, language, [], [], reason, meta), started, language)
+            return self._finish(self._escalation(query, machine_id, answer_language, [], [], reason, meta),
+                                started, answer_language, emit)
         # A model named in the question beats the machine choice, which may be left over from an earlier question.
         manual_ids = covered or ([self._machines[machine_id].manual] if machine_id else None)
-        result = self._retriever.retrieve(text_en, manual_ids)
+        result = self._retriever.retrieve(text_en, manual_ids, code_text=query if source != "en" else None)
         sources = self._sources(result, manual_ids)
         emit("found", {"codes": [m.hit.code for m in result.matched_codes], "pages": len(result.chunks),
                        "top": self._top(result)})
         matched = [MatchedCode(code=m.hit.code, manual=m.hit.manual_id, name=m.hit.name, page=m.hit.page, fuzzy=m.fuzzy)
                    for m in result.matched_codes]
         meta = Meta(retrieval_top_score=round(result.top_score, 3), search_query=result.expanded_query,
-                    named_models=named)
+                    named_models=named, query_en=query_en)
 
         def escalate(reason: str) -> DiagnosisResponse:
-            response = self._escalation(query, machine_id, language, matched, sources, reason, meta)
-            return self._finish(response, started, language)
+            response = self._escalation(query, machine_id, answer_language, matched, sources, reason, meta)
+            return self._finish(response, started, answer_language, emit)
 
         if not result.matched_codes and result.top_score < self._threshold:
             return escalate(f"No fault code was recognised and the closest manual passage scored "
@@ -161,8 +170,8 @@ class DiagnosisService:
             # The LLM's explanation is unchecked text, so it is kept for engineers and never shown as the reason.
             meta.llm_note = parsed.insufficient_reason
             return escalate("The retrieved manual passages do not cover this problem well enough to name a cause.")
-        response = self._answer(query, machine_id, language, matched, sources, parsed, result, meta)
-        return self._finish(response, started, language)
+        response = self._answer(query, machine_id, answer_language, matched, sources, parsed, result, meta)
+        return self._finish(response, started, answer_language, emit)
 
     def _top(self, result: RetrievalResult) -> dict | None:
         if not result.chunks:
@@ -207,10 +216,11 @@ class DiagnosisService:
             score=score,
         )
 
-    @staticmethod
-    def _prompt_source(source: _Source) -> PromptSource:
+    def _prompt_source(self, source: _Source) -> PromptSource:
         r = source.ref
-        return PromptSource(r.id, r.manual_title, r.family, r.page_start, r.page_end, r.heading, r.kind, source.text)
+        spec = self._manuals.get(r.manual)
+        return PromptSource(r.id, r.manual_title, r.family, r.page_start, r.page_end, r.heading, r.kind, source.text,
+                            models=tuple(spec.models) if spec else ())
 
     def _machine_label(self, machine_id: str | None) -> str | None:
         if not machine_id:
@@ -229,7 +239,7 @@ class DiagnosisService:
         # The LLM's confidence is a ranking signal; without an exact code it cannot exceed retrieval strength.
         cap = 1.0 if result.matched_codes else max(result.top_score, 0.0)
         causes = [Cause(rank=n, cause=c.cause, confidence=round(min(max(c.confidence, 0.0), 1.0, cap), 2),
-                        fault_code=c.fault_code or None, citations=cite(c.source_ids))
+                        fault_code=bare_code(c.fault_code or "") or None, citations=cite(c.source_ids))
                   for n, c in enumerate(parsed.probable_causes, 1)]
         steps = [Step(step=n, action=s.action, requires_isolation=s.requires_isolation, citations=cite(s.source_ids))
                  for n, s in enumerate(parsed.corrective_actions, 1)]
@@ -254,6 +264,10 @@ class DiagnosisService:
             sources=[s.ref for s in sources], meta=meta,
         )
 
-    def _finish(self, response: DiagnosisResponse, started: float, language: str) -> DiagnosisResponse:
-        response.meta.latency_ms = int((self._clock() - started) * 1000)
-        return self._language.from_english(response, language)
+    def _finish(self, response: DiagnosisResponse, started: float, language: str,
+                emit: Progress | None = None) -> DiagnosisResponse:
+        if language != "en" and emit:
+            emit("translate_out", {"language": language})
+        response = self._language.from_english(response, language)
+        response.meta.latency_ms = int((self._clock() - started) * 1000)  # includes translation
+        return response

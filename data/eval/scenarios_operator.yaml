@@ -1,0 +1,249 @@
+# OPERATOR-LANGUAGE eval scenarios, 2026-10-04: the way people on a shop floor actually type. Typos and
+# shorthand, codes misread off a 7-segment display (0HF), codes with a space (SCF 1), romanised Hindi and
+# Tamil (Hinglish/Tanglish, which stay on the English path), symptoms with no code, a drive model named instead
+# of a machine, and questions FaultSense should not answer. Expected causes and pages are the manuals' own
+# fault entries. Every scenario is `reviewed: false` until a person has checked it.
+# Run: faultsense eval run --scenarios data/eval/scenarios_operator.yaml
+
+# ---------------- Typos, shorthand and misread codes ----------------
+- id: op-typo-pump-ohf
+  type: fault_code
+  query: pump drv showing 0HF agn, tripd twice today
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OHF]
+  expected_causes: [Device temperature too high, Ambient temperature too high, Reduced air flow due to blocked air at the inlet or outlet, One of the fans does not work properly]
+  expected_sources: [{manual: atv600, pages: [672]}]
+  notes: Zero for the letter O, as read off the display.
+  reviewed: false
+
+- id: op-typo-conv-olf
+  type: fault_code
+  query: convyr drive trips OLF wen we load hevy boxes
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OLF]
+  expected_causes: [Triggered by excessive motor current]
+  expected_sources: [{manual: atv320, pages: [413]}]
+  reviewed: false
+
+- id: op-typo-fan-usf
+  type: fault_code
+  query: fan invrter shows USF evry morning at startup
+  machine_id: DEMO-FAN-01
+  expected_behavior: diagnose
+  expected_fault_codes: [USF]
+  expected_causes: [Line supply too low, Transient voltage dip]
+  expected_sources: [{manual: atv12, pages: [115]}]
+  reviewed: false
+
+- id: op-lower-hoist-brf
+  type: fault_code
+  query: hoist showing brf what to check
+  machine_id: DEMO-HOIST-01
+  expected_behavior: diagnose
+  expected_fault_codes: [BRF]
+  expected_causes: [The status of the brake feedback contact or brake relay feedback does not match the brake logic control]
+  expected_sources: [{manual: atv900, pages: [652]}]
+  reviewed: false
+
+- id: op-spaced-fan-scf1
+  type: fault_code
+  query: fan drive SCF 1 trip right after start
+  machine_id: DEMO-FAN-01
+  expected_behavior: diagnose
+  expected_fault_codes: [SCF1]
+  expected_causes: [Short-circuit or grounding at the drive output, Ground fault during running status]
+  expected_sources: [{manual: atv12, pages: [112]}]
+  notes: The code typed with a space, as it looks on some displays.
+  reviewed: false
+
+- id: op-sevenseg-pump-ocf
+  type: fault_code
+  query: pump drive tripped with 0CF when starting
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OCF]
+  expected_causes: [Overcurrent limitation is reached, Inertia or load too high, Mechanical locking, Motor autotuned values does not match with the motor connected]
+  expected_sources: [{manual: atv600, pages: [672]}]
+  reviewed: false
+
+# ---------------- Romanised Hindi and Tamil ----------------
+- id: op-hinglish-pump-ohf
+  type: fault_code
+  query: pump wali drive baar baar trip ho rahi hai, display pe OHF aa raha hai
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OHF]
+  expected_causes: [Device temperature too high, Ambient temperature too high, Reduced air flow due to blocked air at the inlet or outlet, One of the fans does not work properly]
+  expected_sources: [{manual: atv600, pages: [672]}]
+  reviewed: false
+
+- id: op-hinglish-conv-olf
+  type: fault_code
+  query: conveyor ka motor garam ho raha hai aur drive OLF dikha rahi hai
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OLF]
+  expected_causes: [Triggered by excessive motor current]
+  expected_sources: [{manual: atv320, pages: [413]}]
+  reviewed: false
+
+- id: op-hinglish-pump-current
+  type: symptom
+  query: motor current bahut zyada hai aur drive trip ho raha hai
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_causes: [Inertia or load too high, Mechanical locking, Excessive motor current has been detected]
+  expected_sources: [{manual: atv600, pages: [672, 673]}]
+  notes: Overcurrent (OCF, p.672) or motor overload (OLF, p.673); either is a fair answer.
+  reviewed: false
+
+- id: op-tanglish-pump-current
+  type: symptom
+  query: motor odala, drive la current athigama irukku, trip aaguthu
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_causes: [Inertia or load too high, Mechanical locking, Excessive motor current has been detected]
+  expected_sources: [{manual: atv600, pages: [672, 673]}]
+  notes: '"The motor is not running, the drive current is high, it trips." OCF or OLF.'
+  reviewed: false
+
+- id: op-tanglish-fan-display
+  type: symptom
+  query: fan drive display la onnum varala, power irukku
+  machine_id: DEMO-FAN-01
+  expected_behavior: diagnose
+  expected_causes: [Check the power supply to the drive - ground and input phase connections]
+  expected_sources: [{manual: atv12, pages: [111]}]
+  notes: '"Nothing shows on the fan drive display, the power is there."'
+  reviewed: false
+
+- id: op-tanglish-hoist-blf
+  type: fault_code
+  query: hoist la brake open aagala, BLF varuthu
+  machine_id: DEMO-HOIST-01
+  expected_behavior: diagnose
+  expected_fault_codes: [BLF]
+  expected_causes: [The brake release current is not reached, The torque set point is not reached, The fluxing current is not stable]
+  expected_sources: [{manual: atv900, pages: [651]}]
+  notes: '"The hoist brake does not open, BLF comes."'
+  reviewed: false
+
+# ---------------- Symptoms with no code ----------------
+- id: op-sym-pump-hot-panel
+  type: symptom
+  query: drive keeps tripping in the afternoon, the panel is very hot to touch
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_causes: [Device temperature too high, Ambient temperature too high, Reduced air flow due to blocked air at the inlet or outlet, One of the fans does not work properly]
+  expected_sources: [{manual: atv600, pages: [672]}]
+  reviewed: false
+
+- id: op-sym-conv-new-cable
+  type: symptom
+  query: after the electrician changed the motor cable it trips immediately on start
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_causes: [Short-circuit or grounding at the drive output]
+  expected_sources: [{manual: atv320, pages: [413, 416]}]
+  notes: A short or earth fault in the new cable (SCF1, p.416); overcurrent (OCF, p.413) is also fair.
+  reviewed: false
+
+- id: op-sym-hoist-brake
+  type: symptom
+  query: brake is not opening when we try to lift, motor makes noise
+  machine_id: DEMO-HOIST-01
+  expected_behavior: diagnose
+  expected_causes: [The brake release current is not reached, The torque set point is not reached, The fluxing current is not stable]
+  expected_sources: [{manual: atv900, pages: [651]}]
+  reviewed: false
+
+- id: op-sym-conv-heavy
+  type: symptom
+  query: conveyor stops whenever we put heavy boxes on it
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_causes: [Triggered by excessive motor current, Inertia or load too high]
+  expected_sources: [{manual: atv320, pages: [413]}]
+  notes: Motor overload (OLF) or overcurrent (OCF), both on p.413.
+  reviewed: false
+
+- id: op-sym-fan-dead
+  type: symptom
+  query: fan drive dead, no lights on the display
+  machine_id: DEMO-FAN-01
+  expected_behavior: diagnose
+  expected_causes: [Check the power supply to the drive - ground and input phase connections]
+  expected_sources: [{manual: atv12, pages: [111]}]
+  reviewed: false
+
+- id: op-sym-pump-powercut
+  type: fault_code
+  query: power cut came and went, now drive shows USF
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_fault_codes: [USF]
+  expected_causes: [The measured DC bus voltage is lower than the rated voltage of the Supply Mains setting, Supply Mains power too weak]
+  expected_sources: [{manual: atv600, pages: [687]}]
+  reviewed: false
+
+- id: op-sym-hoist-slip
+  type: symptom
+  query: load slips down slowly when hoist stops
+  machine_id: DEMO-HOIST-01
+  expected_behavior: diagnose
+  notes: Behaviour only (no expected page or cause yet); the answer belongs in the brake logic settings and needs a person to pick the pages.
+  reviewed: false
+
+- id: op-pressure-pump-ohf
+  type: fault_code
+  query: OHF on the pump, can we just reset and run? production is waiting
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OHF]
+  expected_causes: [Device temperature too high, Ambient temperature too high, Reduced air flow due to blocked air at the inlet or outlet, One of the fans does not work properly]
+  expected_sources: [{manual: atv600, pages: [672]}]
+  notes: The answer should say to let the drive cool and remove the cause first, not just reset.
+  reviewed: false
+
+# ---------------- A drive model named instead of a machine ----------------
+- id: op-model-atv320-ohf
+  type: fault_code
+  query: ATV320 on the packing line shows OHF
+  expected_behavior: diagnose
+  expected_fault_codes: [OHF]
+  expected_causes: [Drive temperature too high]
+  expected_sources: [{manual: atv320, pages: [413]}]
+  reviewed: false
+
+- id: op-catalogue-atv630-ocf
+  type: fault_code
+  query: ATV630D11N4 tripping on OCF during pump start
+  expected_behavior: diagnose
+  expected_fault_codes: [OCF]
+  expected_causes: [Overcurrent limitation is reached, Inertia or load too high, Mechanical locking, Motor autotuned values does not match with the motor connected]
+  expected_sources: [{manual: atv600, pages: [672]}]
+  reviewed: false
+
+# ---------------- Should not be answered ----------------
+- id: op-oos-vague
+  type: out_of_scope
+  query: machine not working
+  expected_behavior: escalate
+  notes: Too vague to diagnose; any answer would be a guess.
+  reviewed: false
+
+- id: op-oos-danfoss
+  type: out_of_scope
+  query: Danfoss FC302 alarm 14 earth fault on the extruder
+  expected_behavior: escalate
+  notes: Another maker's drive. FaultSense does not recognise Danfoss model names, so this relies on the evidence gate or the model declining; an Altivar earth-fault answer would be wrong.
+  reviewed: false
+
+- id: op-oos-altivar31
+  type: out_of_scope
+  query: Altivar 31 on the old mixer shows SLF
+  expected_behavior: escalate
+  notes: An Altivar with no manual loaded.
+  reviewed: false

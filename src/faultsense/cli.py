@@ -326,6 +326,52 @@ def serve(
     uvicorn.run(create_app(wiring.build_service, wiring.build_catalog()), host=host, port=port)
 
 
+@app.command()
+def translate(
+    text: str = typer.Argument(..., help="Text to translate."),
+    to: str = typer.Option("en", "--to", help="Target language: en, hi or ta."),
+) -> None:
+    """Translate with the configured translator (codes and numbers shielded); also downloads the models."""
+    from faultsense import wiring
+    from faultsense.translation import detect_script, translate_shielded
+
+    translator = wiring.build_translator()
+    if translator is None:
+        console.print("[red]Translation is off (TRANSLATION=off).[/red]")
+        raise typer.Exit(1)
+    source = detect_script(text) if to == "en" else "en"
+    [result] = translate_shielded(translator, [text], source, to)
+    console.print(escape(result) if result else "[red]The translation failed the protection check.[/red]")
+
+
+@app.command("setup-translation")
+def setup_translation() -> None:
+    """Build the separate Hindi/Tamil translation environment (.venv-indic) and download IndicTrans2."""
+    import subprocess
+
+    from faultsense import wiring
+    from faultsense.translation import setup_commands
+
+    settings = get_settings()
+    for label, command in setup_commands(settings.translation_python_path):
+        console.print(f"{label}...")
+        subprocess.run(command, check=True)
+    translator = wiring.build_translator(settings)
+    if translator is None:
+        console.print("[red]Translation is off (TRANSLATION=off).[/red]")
+        raise typer.Exit(1)
+    console.print("Loading the translation models (the first time downloads about 2 GB; needs HF_TOKEN)...")
+    try:
+        [hindi] = translator.translate(["Wait for the drive to cool down."], "en", "hi")
+        [english] = translator.translate(["டிரைவ் அதிக வெப்பமாக உள்ளது."], "ta", "en")
+    except RuntimeError as exc:
+        console.print(f"[red]Translation check failed: {escape(str(exc))}[/red]")
+        raise typer.Exit(1) from exc
+    finally:
+        translator.close()
+    console.print(f"Ready. Test translations: {escape(hindi)} / {escape(english)}")
+
+
 def _run_path(settings: Settings, value: Path) -> Path:
     candidate = value if value.exists() else settings.eval_runs_dir / value
     if not (candidate / "summary.json").exists():

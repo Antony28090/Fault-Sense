@@ -14,9 +14,9 @@ Rules:
 4. Order probable causes from most to least likely for this operator's description. confidence is between 0 and 1 and reflects how directly the sources support that cause for this description.
 5. When a corrective action involves opening the drive or touching power terminals, cables, motor connections, the DC bus or the braking resistor, set requires_isolation to true and include a safety warning taken from the source with kind="safety" (disconnect and lock out all power, wait for the DC bus to discharge, verify the absence of voltage), citing that source.
 6. If several causes in the SOURCES fit the description, list each one as a probable cause, ranked, with a confidence that shows the uncertainty, and add a corrective action telling the operator what to check to tell them apart (for example the code shown on the display). Use status "insufficient_evidence" only when the SOURCES do not describe this kind of problem at all; then explain briefly in insufficient_reason and return empty lists. Never guess beyond the SOURCES.
-7. If sources from several drive models differ, follow the model on the MACHINE line; when no machine is given, name the model in the cause text.
+7. If sources from several drive models differ, follow the model on the MACHINE line; when no machine is given, name the model in the cause text. A source's models attribute lists every drive model its manual covers: a question about any of them (for example an ATV930 when the source lists ATV900, ATV930) is answered from that source.
 8. RECOGNISED FAULT CODES lists the codes matched from the operator's message. A display look-alike match (O/0, I/1, S/5 read the same on the drive's 7-segment display) means the operator's code is that manual code; use the manual's spelling.
-9. Write for a shop-floor operator: short, concrete sentences."""
+9. Write for a shop-floor operator: short, concrete sentences, always in English, whatever language the OPERATOR QUERY is in."""
 
 
 @dataclass(frozen=True)
@@ -29,6 +29,7 @@ class PromptSource:
     heading: str
     kind: str
     text: str
+    models: tuple[str, ...] = ()  # every drive model the manual covers; the family alone when empty
 
 
 def _pages(source: PromptSource) -> str:
@@ -48,8 +49,9 @@ def build_user_prompt(query: str, sources: list[PromptSource], machine: str | No
         parts.append("RECOGNISED FAULT CODES:\n" + "\n".join(f"- {line}" for line in recognised_codes))
     parts.append("SOURCES:")
     for s in sources:
+        model = f'models="{", ".join(s.models)}"' if s.models else f'model="{s.family}"'
         parts.append(
-            f'<source id="{s.id}" model="{s.family}" manual="{_attr(s.manual_title)}" pages="{_pages(s)}" '
+            f'<source id="{s.id}" {model} manual="{_attr(s.manual_title)}" pages="{_pages(s)}" '
             f'kind="{s.kind}" section="{_attr(s.heading)}">\n{s.text}\n</source>'
         )
     if telemetry:

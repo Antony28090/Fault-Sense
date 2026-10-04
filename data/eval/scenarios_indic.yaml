@@ -1,0 +1,150 @@
+# Hindi and Tamil eval scenarios, adapted from the real-world set with the same expected pages and
+# causes. Written by Claude, not native speakers: every scenario is `reviewed: false` until checked.
+# Run: faultsense eval run --scenarios data/eval/scenarios_indic.yaml
+
+- id: indic-hi-atv600-ohf
+  type: fault_code
+  query: बोरवेल पंप की ड्राइव पर OHF आ रहा है
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OHF]
+  expected_causes: [Device temperature too high, Ambient temperature too high, Reduced air flow due to blocked air at the inlet or outlet, One of the fans does not work properly]
+  expected_sources: [{manual: atv600, pages: [672]}]
+  reviewed: false
+
+- id: indic-hi-atv600-hot-afternoon
+  type: symptom
+  query: दोपहर में गर्मी बढ़ने पर पंप की ड्राइव बार-बार ट्रिप हो जाती है
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_causes: [Ambient temperature too high, Device temperature too high]
+  expected_sources: [{manual: atv600, pages: [672]}]
+  reviewed: false
+
+- id: indic-hi-atv320-ocf
+  type: fault_code
+  query: कन्वेयर चालू करते ही ड्राइव OCF दिखाती है
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OCF]
+  expected_causes: [Inertia or load too high, Mechanical locking, Parameters in the Settings and Motor control menus are not correct]
+  expected_sources: [{manual: atv320, pages: [413]}]
+  reviewed: false
+
+- id: indic-hi-atv320-cable
+  type: symptom
+  query: इलेक्ट्रीशियन ने मोटर केबल बदली, अब चालू करते ही ड्राइव ट्रिप हो जाती है
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_causes: [Short-circuit or grounding at the drive output]
+  expected_sources: [{manual: atv320, pages: [416]}]
+  reviewed: false
+
+- id: indic-hi-atv12-usf
+  type: fault_code
+  query: पंखे की ड्राइव पर USF आता है, बिजली कम-ज़्यादा होती रहती है
+  machine_id: DEMO-FAN-01
+  expected_behavior: diagnose
+  expected_fault_codes: [USF]
+  expected_causes: [Line supply too low, Transient voltage dip]
+  expected_sources: [{manual: atv12, pages: [115]}]
+  reviewed: false
+
+- id: indic-hi-atv12-blank
+  type: symptom
+  query: पंखे की ड्राइव चालू नहीं होती, डिस्प्ले पर कुछ नहीं दिखता
+  machine_id: DEMO-FAN-01
+  expected_behavior: diagnose
+  expected_causes: [Check the power supply to the drive - ground and input phase connections]
+  expected_sources: [{manual: atv12, pages: [111]}]
+  reviewed: false
+
+- id: indic-hi-atv900-blf
+  type: fault_code
+  query: होइस्ट उठाते समय ड्राइव BLF दिखाती है
+  machine_id: DEMO-HOIST-01
+  expected_behavior: diagnose
+  expected_fault_codes: [BLF]
+  expected_causes: [The brake release current is not reached, The torque set point is not reached, The fluxing current is not stable]
+  expected_sources: [{manual: atv900, pages: [651]}]
+  reviewed: false
+
+- id: indic-hi-oos-atv71
+  type: out_of_scope
+  query: ATV71 ड्राइव पर USF फ़ॉल्ट क्यों आता है
+  expected_behavior: escalate
+  reviewed: false
+
+- id: indic-ta-atv600-ohf
+  type: fault_code
+  query: போர்வெல் பம்ப் டிரைவில் OHF வருகிறது
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OHF]
+  expected_causes: [Device temperature too high, Ambient temperature too high, Reduced air flow due to blocked air at the inlet or outlet, One of the fans does not work properly]
+  expected_sources: [{manual: atv600, pages: [672]}]
+  reviewed: false
+
+- id: indic-ta-atv600-dry-run
+  type: symptom
+  query: கிணற்றில் தண்ணீர் குறைந்ததும் பம்ப் டிரைவ் நின்றுவிடுகிறது
+  machine_id: DEMO-PUMP-01
+  expected_behavior: diagnose
+  expected_causes: [The dry run monitoring function has detected an error]
+  expected_sources: [{manual: atv600, pages: [652]}]
+  reviewed: false
+
+- id: indic-ta-atv320-olf
+  type: fault_code
+  query: கன்வேயரில் அதிக சுமை ஏற்றும்போது டிரைவ் OLF காட்டுகிறது
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OLF]
+  expected_causes: [Triggered by excessive motor current]
+  expected_sources: [{manual: atv320, pages: [413]}]
+  reviewed: false
+
+- id: indic-ta-atv320-tnf
+  type: fault_code
+  query: டிரைவை இயக்கும்போது tnF வருகிறது
+  machine_id: DEMO-CONV-01
+  expected_behavior: diagnose
+  expected_fault_codes: [TNF]
+  expected_causes: [Motor not connected to the drive, Special motor or motor whose power is not suitable for the drive, Motor not stopped]
+  expected_sources: [{manual: atv320, pages: [419]}]
+  reviewed: false
+
+- id: indic-ta-atv12-phf
+  type: fault_code
+  query: ஃபேன் டிரைவ் சுமையுடன் ஓடும்போது PHF காட்டுகிறது
+  machine_id: DEMO-FAN-01
+  expected_behavior: diagnose
+  expected_fault_codes: [PHF]
+  expected_causes: [Drive incorrectly supplied or a fuse blown, Failure of one phase, Unbalanced load]
+  expected_sources: [{manual: atv12, pages: [114]}]
+  reviewed: false
+
+- id: indic-ta-atv900-obf
+  type: fault_code
+  query: அதிக சுமையை வேகமாக இறக்கும்போது ஹாய்ஸ்ட் டிரைவ் OBF காட்டுகிறது
+  machine_id: DEMO-HOIST-01
+  expected_behavior: diagnose
+  expected_fault_codes: [OBF]
+  expected_causes: [Deceleration time too short or driving load too high, The DC bus voltage is too high]
+  expected_sources: [{manual: atv900, pages: [679]}]
+  reviewed: false
+
+- id: indic-ta-atv900-brake
+  type: symptom
+  query: ஹாய்ஸ்ட் தூக்கும்போது பிரேக் திறக்கவில்லை, மோட்டார் சத்தம் போடுகிறது
+  machine_id: DEMO-HOIST-01
+  expected_behavior: diagnose
+  expected_causes: [The brake release current is not reached]
+  expected_sources: [{manual: atv900, pages: [651]}]
+  reviewed: false
+
+- id: indic-ta-oos-ats48
+  type: out_of_scope
+  query: ATS48 சாஃப்ட் ஸ்டார்ட்டரில் USF கோளாறு
+  expected_behavior: escalate
+  reviewed: false

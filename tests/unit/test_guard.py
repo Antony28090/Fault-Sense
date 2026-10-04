@@ -52,3 +52,31 @@ def test_invented_fault_code_is_a_violation():
 def test_insufficient_evidence_is_not_checked():
     out = _answer(status="insufficient_evidence", probable_causes=[], corrective_actions=[], safety_warnings=[])
     assert check_llm_output(out, VALID, SAFETY, KNOWN) == []
+
+
+def test_a_fault_code_written_with_its_bracketed_name_is_checked_as_code_and_name():
+    known = KnownIdentifiers(frozenset({"TNF"}), frozenset({"autotuning error"}))
+    cause = {"cause": "Autotuning did not finish.", "confidence": 0.6, "source_ids": ["S1"]}
+    ok = _answer(probable_causes=[cause | {"fault_code": "[Autotuning Error] TNF"}])
+    assert check_llm_output(ok, VALID, SAFETY, known) == []
+    bad = _answer(probable_causes=[cause | {"fault_code": "[Tuning Fault] TNF9"}])
+    assert check_llm_output(bad, VALID, SAFETY, known) == [
+        "cause 1: unknown identifier [Tuning Fault]", "cause 1: unknown identifier TNF9"]
+
+
+def test_labels_match_whether_words_are_joined_by_underscores_or_spaces():
+    known = KnownIdentifiers(frozenset(), frozenset({"brh_b4_freq", "motor th current"}))
+    assert known.knows_label("BRH b4_freq") and known.knows_label("BRH_b4_freq") and known.knows_label("Motor_Th_Current")
+    assert not known.knows_label("BRH b5 freq")
+
+
+def test_a_repeated_cause_is_a_violation():
+    cause = {"cause": "Ambient temperature too high.", "confidence": 0.8, "fault_code": "OHF", "source_ids": ["S1"]}
+    out = _answer(probable_causes=[cause, cause | {"cause": " ambient  temperature too high"}, cause | {"cause": "Blocked air inlet."}])
+    assert check_llm_output(out, VALID, SAFETY, KNOWN) == ["cause 2 repeats cause 1: list each cause once"]
+
+
+def test_plurals_of_generic_terms_are_not_identifiers():
+    assert unknown_identifiers("Check the IDs of both PLCs and the LEDs on the IGBTs.", KNOWN) == []
+    assert unknown_identifiers("Check OHFs.", KNOWN) == []  # a known code in the plural
+    assert unknown_identifiers("Check XQZs.", KNOWN) == ["XQZs"]

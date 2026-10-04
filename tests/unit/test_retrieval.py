@@ -168,3 +168,10 @@ def test_hyphen_joined_and_spaced_codes_are_detected():
     r = retriever(FakeBackend([], faults={"OHF": [hit("OHF")], "SCF1": [hit("SCF1")]}))
     assert [m.hit.code for m in r.detect_codes("OHF-fault on the pump")] == ["OHF"]
     assert [m.hit.code for m in r.detect_codes("drive shows SCF 1")] == ["SCF1"]
+
+
+def test_codes_are_also_looked_for_in_the_original_question():
+    backend = FakeBackend([chunk("m600:f:PHF", kind="fault", text="Input phase loss")], faults={"PHF": [hit("PHF")]})
+    result = retriever(backend).retrieve("the conveyor drive is getting pH", code_text="கன்வேயர் டிரைவில் phf வருகிறது")
+    assert [m.hit.code for m in result.matched_codes] == ["PHF"]
+    assert result.chunks[0].chunk.id == "m600:f:PHF"

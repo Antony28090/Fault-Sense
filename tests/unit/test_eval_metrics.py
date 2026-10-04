@@ -80,3 +80,13 @@ def test_citation_accuracy_skips_the_safety_anchor():
 def test_answer_text_collects_every_answer_field():
     text = answer_text(_response())
     assert "Ambient temperature too high." in text and "OHF" in text and "Clean the heat sink." in text
+
+
+def test_translation_fallback_rate_counts_sentences():
+    from faultsense.eval.metrics import ScenarioResult, summarize
+
+    results = [ScenarioResult("a", "fault_code", False, translation_fallbacks=1, translation_total=4),
+               ScenarioResult("b", "symptom", False, translation_fallbacks=0, translation_total=6),
+               ScenarioResult("c", "fault_code", False)]
+    assert summarize(results)["metrics"]["translation_fallback"] == {"value": 0.1, "n": 10}
+    assert summarize([results[2]])["metrics"]["translation_fallback"] == {"value": None, "n": 0}

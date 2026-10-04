@@ -1,4 +1,4 @@
-"""The real-world scenarios point at fault entries that really exist on the stated manual pages."""
+"""Real-world, Hindi/Tamil and operator-language scenarios point at fault entries on the stated manual pages."""
 import pytest
 
 from helpers import DATA_DIR
@@ -22,8 +22,9 @@ def fault_pages():
     return pages
 
 
-def test_expected_fault_codes_are_on_the_expected_pages(fault_pages):
-    for s in load_scenarios(DATA_DIR / "eval" / "scenarios_web.yaml"):
+@pytest.mark.parametrize("name", ["scenarios_web.yaml", "scenarios_indic.yaml", "scenarios_operator.yaml"])
+def test_expected_fault_codes_are_on_the_expected_pages(fault_pages, name):
+    for s in load_scenarios(DATA_DIR / "eval" / name):
         for code in s.expected_fault_codes:
             found = [(src.manual, p) for src in s.expected_sources for p in src.pages
                      if p in fault_pages.get((src.manual, code_key(code)), set())]

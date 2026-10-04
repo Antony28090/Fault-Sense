@@ -60,6 +60,11 @@ def _score_answer(result: ScenarioResult, scenario: Scenario, service, scorer: A
     result.answer = response.model_dump(mode="json")
     result.status = response.status
     result.latency_ms = response.meta.latency_ms
+    translation = response.translation
+    if translation is not None and translation.available:
+        items = translation.causes + translation.steps + translation.safety_warnings
+        result.translation_total = len(items)
+        result.translation_fallbacks = sum(item.fallback for item in items)
     if scenario.expected_behavior == "escalate":
         result.refusal_correct = response.status == "escalate"
     else:

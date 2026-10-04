@@ -1,4 +1,5 @@
 "use strict";
+/* global I18N, t, setLang, currentLang, words */
 
 /* ---------- helpers: every server string goes through textContent ---------- */
 function el(tag, attrs, ...children) {
@@ -41,9 +42,9 @@ function toast(text) {
   toastTimer = setTimeout(() => box.classList.remove("show"), 2200);
 }
 
-async function copyText(text, done) {
-  try { await navigator.clipboard.writeText(text); toast(done); }
-  catch { toast("Copying is blocked here: select the text and copy it instead."); }
+async function copyText(text, doneKey) {
+  try { await navigator.clipboard.writeText(text); toast(t(doneKey)); }
+  catch { toast(t("copyBlocked")); }
 }
 
 /* ---------- line icons (24 x 24, stroked in currentColor) ---------- */
@@ -59,6 +60,7 @@ const ICONS = {
   auto: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor" stroke="none"/>',
   light: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>',
   dark: '<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',
 };
 function icon(name) {
   const box = svg("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": "1.7",
@@ -78,11 +80,11 @@ const SEGMENTS = {
   "-": "g", " ": "",
 };
 const CELL = 60;
-function hSeg(x, y, len, t) {
-  return `${x},${y} ${x + t / 2},${y - t / 2} ${x + len - t / 2},${y - t / 2} ${x + len},${y} ${x + len - t / 2},${y + t / 2} ${x + t / 2},${y + t / 2}`;
+function hSeg(x, y, len, w) {
+  return `${x},${y} ${x + w / 2},${y - w / 2} ${x + len - w / 2},${y - w / 2} ${x + len},${y} ${x + len - w / 2},${y + w / 2} ${x + w / 2},${y + w / 2}`;
 }
-function vSeg(x, y, len, t) {
-  return `${x},${y} ${x + t / 2},${y + t / 2} ${x + t / 2},${y + len - t / 2} ${x},${y + len} ${x - t / 2},${y + len - t / 2} ${x - t / 2},${y + t / 2}`;
+function vSeg(x, y, len, w) {
+  return `${x},${y} ${x + w / 2},${y + w / 2} ${x + w / 2},${y + len - w / 2} ${x},${y + len} ${x - w / 2},${y + len - w / 2} ${x - w / 2},${y + w / 2}`;
 }
 const SHAPES = {
   a: hSeg(9, 7, 36, 8), g: hSeg(9, 50, 36, 8), d: hSeg(9, 93, 36, 8),
@@ -123,7 +125,7 @@ function readout(code, nameText, sub, { testing = false, reveal = false } = {}) 
       sub ? el("div", { class: "readout-sub" }, sub) : null));
 }
 
-/* ---------- page elements ---------- */
+/* ---------- page elements and state ---------- */
 const form = document.getElementById("ask-form");
 const tiles = document.getElementById("tiles");
 const queryBox = document.getElementById("query");
@@ -133,40 +135,63 @@ const answer = document.getElementById("answer");
 const examplesBox = document.getElementById("examples");
 const lamp = document.getElementById("lamp");
 const lampText = document.getElementById("lamp-text");
+const hint = document.getElementById("query-hint");
+const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const SPEECH = { en: "en-IN", hi: "hi-IN", ta: "ta-IN" };
 
-const EXAMPLES = {
-  "": ["OHF on the pump drive", "InF1 on the fan drive", "ATV61 trips on OHF"],
-  atv12: ["OHF", "SCF3 after we changed the motor cable", "Display stays blank at power up"],
-  atv320: ["OCF when the conveyor starts", "Display flashes and the motor never reaches speed", "tnF at power up"],
-  atv600: ["OHF", "Pump trips on hot afternoons", "Borewell pump runs dry and the drive trips"],
-  atv900: ["BLF when the hoist lifts", "OBF when lowering a heavy load fast", "brF brake feedback fault"],
-};
 let machines = [];
+let busy = false;
+let lampKey = "starting";
+let view = "translated";  // or "english": which copy of the answer is on screen
+let lastAnswer = null;    // { response, codeShown } so a language or view change can re-render it
 
 /* ---------- theme: automatic, light or dark ---------- */
-const THEMES = { auto: "automatic", light: "light", dark: "dark" };
+const THEME_KEYS = { auto: "themeAuto", light: "themeLight", dark: "themeDark" };
 const themeButton = document.getElementById("theme");
 function applyTheme(mode) {
   if (mode === "auto") delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = mode;
   themeButton.replaceChildren(icon(mode));
-  themeButton.setAttribute("aria-label", `Colour theme: ${THEMES[mode]}`);
-  themeButton.title = `Colour theme: ${THEMES[mode]} (click to change)`;
+  themeButton.setAttribute("aria-label", t("colourTheme", { mode: t(THEME_KEYS[mode]) }));
+  themeButton.title = t("themeTitle", { mode: t(THEME_KEYS[mode]) });
 }
 themeButton.addEventListener("click", () => {
   const order = ["auto", "light", "dark"];
   const next = order[(order.indexOf(store.get("faultsense.theme", "auto")) + 1) % order.length];
   store.set("faultsense.theme", next);
   applyTheme(next);
-  toast(`Colour theme: ${THEMES[next]}`);
+  toast(t("colourTheme", { mode: t(THEME_KEYS[next]) }));
 });
-applyTheme(store.get("faultsense.theme", "auto"));
+
+/* ---------- language ---------- */
+function applyLanguage(lang) {
+  setLang(lang);
+  store.set("faultsense.lang", currentLang);
+  document.documentElement.lang = currentLang;
+  for (const node of document.querySelectorAll("[data-i18n]")) node.textContent = t(node.dataset.i18n);
+  for (const node of document.querySelectorAll("[data-i18n-placeholder]")) node.placeholder = t(node.dataset.i18nPlaceholder);
+  for (const node of document.querySelectorAll("[data-i18n-aria]")) node.setAttribute("aria-label", t(node.dataset.i18nAria));
+  for (const button of document.querySelectorAll(".lang-switch button")) {
+    button.setAttribute("aria-pressed", String(button.dataset.lang === currentLang));
+  }
+  if (!busy) goButton.textContent = t("diagnose");
+  hint.textContent = t(Recognition ? "hintVoice" : "hint");
+  lampText.textContent = t(lampKey);
+  applyTheme(store.get("faultsense.theme", "auto"));
+  buildTiles();
+  showRecent();
+  if (lastAnswer) showDiagnosis(lastAnswer.response, lastAnswer);
+  else if (!busy) showEmpty();
+}
+for (const button of document.querySelectorAll(".lang-switch button")) {
+  button.addEventListener("click", () => applyLanguage(button.dataset.lang));
+}
 
 /* ---------- machine tiles ---------- */
 function machineIcon(text) {
-  const t = text.toLowerCase();
-  return t.includes("fan") ? "fan" : t.includes("conveyor") ? "conveyor" : t.includes("pump") ? "pump"
-    : t.includes("hoist") || t.includes("crane") ? "hoist" : "drive";
+  const lower = text.toLowerCase();
+  return lower.includes("fan") ? "fan" : lower.includes("conveyor") ? "conveyor" : lower.includes("pump") ? "pump"
+    : lower.includes("hoist") || lower.includes("crane") ? "hoist" : "drive";
 }
 function selectedMachineId() { const checked = tiles.querySelector("input:checked"); return checked ? checked.value : ""; }
 function selectedMachine() { return machines.find((m) => m.id === selectedMachineId()) || null; }
@@ -176,9 +201,11 @@ function selectMachine(id) {
   showExamples();
 }
 function buildTiles() {
-  const entries = [{ id: "", name: "Any drive", drive: "No machine chosen", icon: "drive" }].concat(machines.map((m) => {
+  const chosen = selectedMachineId() || store.get("faultsense.machine", "");
+  const names = words("machines") || {};
+  const entries = [{ id: "", name: t("anyDrive"), drive: t("noMachine"), icon: "drive", title: t("allManuals") }].concat(machines.map((m) => {
     const [name, drive] = (m.description || m.id).split(/\s+on an?\s+/i);
-    return { id: m.id, name: name || m.id, drive: drive || m.family, icon: machineIcon(m.description || "") };
+    return { id: m.id, name: names[name] || name || m.id, drive: drive || m.family, icon: machineIcon(m.description || ""), title: m.id };
   }));
   tiles.replaceChildren(...entries.map((entry, i) => {
     const inputId = `machine-${i}`;
@@ -187,22 +214,20 @@ function buildTiles() {
         store.set("faultsense.machine", entry.id);
         showExamples();
       } }),
-      el("label", { for: inputId, title: entry.id || "Search all four manuals" },
-        icon(entry.icon), el("span", { class: "tile-name", text: entry.name }), el("span", { class: "tile-drive", text: entry.drive })));
+      el("label", { for: inputId, title: entry.title },
+        icon(entry.icon), el("span", { class: "tile-name", text: entry.name }), el("span", { class: "tile-drive", lang: "en", text: entry.drive })));
   }));
-  selectMachine(store.get("faultsense.machine", ""));
+  selectMachine(chosen);
 }
 
 function showExamples() {
   const machine = selectedMachine();
-  examplesBox.replaceChildren(...(EXAMPLES[machine ? machine.manual : ""] || EXAMPLES[""]).map((text) =>
+  const examples = words("examples");
+  examplesBox.replaceChildren(...(examples[machine ? machine.manual : ""] || examples[""]).map((text) =>
     el("button", { type: "button", class: "example", text, onclick: () => { queryBox.value = text; queryBox.focus(); } })));
 }
 
-function showEmpty() {
-  answer.replaceChildren(readout("", "Waiting for a code or a problem",
-    "Answers appear here, with the manual page behind every cause and step."));
-}
+function showEmpty() { answer.replaceChildren(readout("", t("emptyTitle"), t("emptySub"))); }
 
 /* ---------- start-up: machines, models and the system lamp ---------- */
 async function loadInfo() {
@@ -219,24 +244,22 @@ async function loadInfo() {
   buildTiles();
 }
 
-function setLamp(state, text) { lamp.dataset.state = state; lampText.textContent = text; }
+function setLamp(state, key) { lampKey = key; lamp.dataset.state = state; lampText.textContent = t(key); }
 async function checkHealth() {
-  setLamp("checking", "Starting up");
+  setLamp("checking", "starting");
   try {
     const response = await fetch("/health");
     const report = await response.json();
-    if (response.ok) setLamp("ready", "Ready");
-    else if (report.status === "degraded") setLamp("degraded", "Database offline");
-    else setLamp("down", "Not ready");
+    if (response.ok) setLamp("ready", "ready");
+    else if (report.status === "degraded") setLamp("degraded", "dbOffline");
+    else setLamp("down", "notReady");
   } catch {
-    setLamp("down", "Server not running");
+    setLamp("down", "serverDown");
   }
 }
 
 /* ---------- voice input (only where the browser offers speech recognition) ---------- */
-const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const mic = document.getElementById("mic");
-const hint = document.getElementById("query-hint");
 if (Recognition) {
   mic.hidden = false;
   mic.append(icon("mic"));
@@ -244,23 +267,21 @@ if (Recognition) {
   mic.addEventListener("click", () => {
     if (recognition) { recognition.stop(); return; }
     recognition = new Recognition();
-    recognition.lang = "en-IN";
+    recognition.lang = SPEECH[currentLang];
     recognition.interimResults = true;
     const base = queryBox.value.trim();
     recognition.onresult = (event) => {
       const heard = [...event.results].map((r) => r[0].transcript).join(" ").trim();
       queryBox.value = base ? `${base} ${heard}` : heard;
     };
-    recognition.onerror = (event) => {
-      toast(event.error === "not-allowed" ? "Microphone access was refused." : "Nothing was heard. Try again.");
-    };
+    recognition.onerror = (event) => { toast(t(event.error === "not-allowed" ? "micRefused" : "nothingHeard")); };
     recognition.onend = () => {
       recognition = null;
       mic.setAttribute("aria-pressed", "false");
-      hint.textContent = "Press Ctrl+Enter to diagnose.";
+      hint.textContent = t("hintVoice");
     };
     mic.setAttribute("aria-pressed", "true");
-    hint.textContent = "Listening. Say the code or describe the problem.";
+    hint.textContent = t("listening");
     recognition.start();
   });
 }
@@ -283,23 +304,23 @@ function showRecent() {
     } }))));
 }
 
-/* ---------- passage viewer ---------- */
+/* ---------- passage viewer (manual text stays English) ---------- */
 const sheet = document.getElementById("sheet");
 const passageCache = new Map();
 document.getElementById("sheet-close").append(icon("close"));
 document.getElementById("sheet-close").addEventListener("click", () => sheet.close());
-sheet.addEventListener("click", (event) => { if (event.target === sheet) sheet.close(); });  // click on the backdrop
+sheet.addEventListener("click", (event) => { if (event.target === sheet) sheet.close(); });
 
 async function openPassage(chunkId, manual, page, family) {
   const where = document.getElementById("sheet-where");
   const title = document.getElementById("sheet-title");
   const body = document.getElementById("sheet-body");
   const pdf = document.getElementById("sheet-pdf");
-  where.textContent = `${family} manual, page ${page}`;
-  title.textContent = "Loading the manual passage";
+  where.textContent = t("passageWhere", { family, page });
+  title.textContent = t("passageLoading");
   body.textContent = "";
   pdf.href = `/manuals/${encodeURIComponent(manual)}.pdf#page=${page}`;
-  pdf.textContent = `Open the PDF at page ${page}`;
+  pdf.textContent = t("openPdf", { page });
   if (!sheet.open) sheet.showModal();
   try {
     if (!passageCache.has(chunkId)) {
@@ -308,15 +329,29 @@ async function openPassage(chunkId, manual, page, family) {
       passageCache.set(chunkId, await response.json());
     }
     const p = passageCache.get(chunkId);
-    const pages = p.page_start === p.page_end ? `page ${p.page_start}` : `pages ${p.page_start} to ${p.page_end}`;
-    where.textContent = `${p.family} manual, ${pages}`;
+    where.textContent = p.page_start === p.page_end
+      ? t("passageWhere", { family: p.family, page: p.page_start })
+      : t("passagePages", { family: p.family, from: p.page_start, to: p.page_end });
     title.textContent = p.heading.split(" > ").pop();
     body.textContent = p.text;
   } catch {
-    title.textContent = "This passage could not be loaded";
-    body.textContent = "The PDF link below still opens the manual at the cited page.";
+    title.textContent = t("passageFailed");
+    body.textContent = t("passageFailedBody");
   }
 }
+
+/* ---------- which copy of the answer is shown ---------- */
+function translationOf(response) {
+  const tr = response.translation;
+  return tr && tr.available ? tr : null;
+}
+function shown(response, kind, index, english) {
+  const tr = view === "translated" ? translationOf(response) : null;
+  const item = tr && tr[kind] && tr[kind][index];
+  if (!item) return { text: english, fallback: false, translated: false, lang: "en" };
+  return { text: item.text, fallback: item.fallback, translated: !item.fallback, lang: item.fallback ? "en" : tr.language };
+}
+function inEnglishTag(item) { return item.fallback ? el("span", { class: "tag-en", text: t("inEnglish") }) : null; }
 
 /* ---------- rendering an answer ---------- */
 function sourceFor(response, sourceId) { return response.sources.find((s) => s.id === sourceId); }
@@ -328,10 +363,10 @@ function citeButton(response, manual, page, chunkId) {
   const family = familyOf(response, manual);
   const label = `${family} p.${page}`;
   if (!chunkId) {
-    return el("a", { class: "cite", href: `/manuals/${encodeURIComponent(manual)}.pdf#page=${page}`, target: "_blank",
-                     rel: "noopener", text: label, title: "Open the manual at this page" });
+    return el("a", { class: "cite", lang: "en", href: `/manuals/${encodeURIComponent(manual)}.pdf#page=${page}`, target: "_blank",
+                     rel: "noopener", text: label, title: t("openManual") });
   }
-  return el("button", { type: "button", class: "cite", text: label, title: "Read this passage of the manual",
+  return el("button", { type: "button", class: "cite", lang: "en", text: label, title: t("readPassage"),
                         onclick: () => openPassage(chunkId, manual, page, family) });
 }
 function cites(response, citations) {
@@ -350,163 +385,191 @@ function cites(response, citations) {
 function codeReadout(response, { reveal }) {
   const matched = response.matched_fault_codes;
   const named = response.meta.named_models || [];
+  const understood = response.meta.query_en && (view === "english" || currentLang === "en")
+    ? el("span", { class: "understood", lang: "en", text: t("understoodAs", { q: response.meta.query_en }) }) : null;
   if (response.status === "escalate" && !response.sources.length && named.length) {
-    return readout("", `No manual for the ${named.join(", ")}`, "FaultSense only answers from the manuals it has.");
+    return readout("", t("noManualFor", { models: named.join(", ") }), [t("noManualSub"), understood].filter(Boolean));
   }
   if (!matched.length) {
-    return readout("", response.status === "escalate" ? "No fault code recognised" : "Answered from your description",
-      "No code on the display was mentioned, so FaultSense searched the manuals for the symptoms.");
+    return readout("", t(response.status === "escalate" ? "noCode" : "fromDescription"),
+      [el("span", { text: t("searchedSymptoms") }), understood].filter(Boolean));
   }
   const first = matched[0];
   const sub = matched.map((m) => {
     const source = response.sources.find((s) => s.manual === m.manual && s.kind === "fault" && s.page_start === m.page);
     return citeButton(response, m.manual, m.page, source ? source.chunk_id : null);
   });
-  if (first.fuzzy) sub.push(el("span", { text: `You typed a look-alike: the drive shows this code as ${first.code}.` }));
-  return readout(first.code, first.name || first.code, sub, { reveal });
+  if (first.fuzzy) sub.push(el("span", { text: t("lookalike", { code: first.code }) }));
+  if (understood) sub.push(understood);
+  const box = readout(first.code, first.name || first.code, sub, { reveal });
+  box.querySelector(".readout-name").setAttribute("lang", "en");
+  return box;
 }
 
 function dangerBlock(response) {
   if (!response.safety_warnings.length) return null;
   const sign = svg("svg", { viewBox: "0 0 24 24", "aria-hidden": "true" });
   sign.append(svg("path", { d: "M12 2 1 21h22L12 2z", fill: "#fff" }), svg("path", { d: "M11 9h2v6h-2zM11 16.5h2v2h-2z", fill: "#c1121f" }));
-  return el("section", { class: "danger", "aria-label": "Safety warnings" },
-    el("h2", { class: "danger-head" }, sign, "DANGER"),
-    el("ul", {}, response.safety_warnings.map((w) => el("li", {}, el("p", { text: w.text }), cites(response, w.citations)))));
+  return el("section", { class: "danger", "aria-label": t("safetyLabel") },
+    el("h2", { class: "danger-head" }, sign, t("danger")),
+    el("ul", {}, response.safety_warnings.map((w, i) => {
+      const item = shown(response, "safety_warnings", i, w.text);
+      return el("li", {},
+        el("p", { lang: item.lang, text: item.text }), inEnglishTag(item),
+        item.translated ? el("p", { class: "orig", lang: "en", text: w.text }) : null,  // the original is always visible
+        cites(response, w.citations));
+    })));
 }
 
 function causesBlock(response) {
   if (!response.probable_causes.length) return null;
   return el("section", { class: "block causes" },
-    el("div", { class: "block-head" }, el("h2", { text: "Likely causes" })),
-    el("ol", {}, response.probable_causes.map((c) => {
+    el("div", { class: "block-head" }, el("h2", { text: t("likelyCauses") })),
+    el("ol", {}, response.probable_causes.map((c, i) => {
+      const item = shown(response, "causes", i, c.cause);
       const lit = Math.round(Math.max(0, Math.min(1, c.confidence)) * 10);
-      const meter = el("div", { class: "meter", role: "img", "aria-label": `Support in the manual: ${lit} of 10` },
-        Array.from({ length: 10 }, (_, i) => el("i", { class: i < lit ? "on" : "" })));
+      const meter = el("div", { class: "meter", role: "img", "aria-label": t("support", { n: lit }) },
+        Array.from({ length: 10 }, (_, k) => el("i", { class: k < lit ? "on" : "" })));
       return el("li", { class: "cause" },
         el("span", { class: "cause-rank", "aria-hidden": "true", text: c.rank }),
-        el("div", {}, el("p", { class: "cause-text", text: c.cause }), meter, cites(response, c.citations)));
+        el("div", {}, el("p", { class: "cause-text", lang: item.lang }, item.text, inEnglishTag(item)), meter, cites(response, c.citations)));
     })));
 }
 
 function stepsBlock(response, reportText) {
   const steps = response.corrective_actions;
   if (!steps.length) return null;
-  const count = el("span", { text: `0 of ${steps.length} done` });
+  const count = el("span", { text: t("stepsDone", { n: 0, total: steps.length }) });
   const fill = el("span", { class: "track-fill" });
   const track = el("div", { class: "track", "aria-live": "polite" }, el("span", { class: "track-bar", "aria-hidden": "true" }, fill), count);
   const block = el("section", { class: "block steps" });
-  const doneNote = el("div", { class: "done-note" }, el("span", { text: "All steps done." }),
+  const doneNote = el("div", { class: "done-note" }, el("span", { text: t("allDone") }),
     el("button", { type: "button", class: "button-quiet", onclick: () => copyText(
-      `${reportText()}\n\nAll ${steps.length} steps done at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`,
-      "Report copied") }, icon("copy"), "Copy report"));
+      `${reportText()}\n\n${t("reportAllDone", { n: steps.length, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) })}`,
+      "reportCopied") }, icon("copy"), t("copyReport")));
   const update = () => {
     const done = block.querySelectorAll(".step input:checked").length;
-    count.textContent = `${done} of ${steps.length} done`;
+    count.textContent = t("stepsDone", { n: done, total: steps.length });
     fill.style.width = `${(done / steps.length) * 100}%`;
     track.classList.toggle("complete", done === steps.length);
     if (done === steps.length) block.append(doneNote); else doneNote.remove();
   };
   block.append(
-    el("div", { class: "block-head" }, el("h2", { text: "What to do" }), track),
-    el("ol", {}, steps.map((s) => el("li", { class: `step${s.requires_isolation ? " isolate" : ""}` },
-      el("label", {},
-        el("input", { type: "checkbox", "aria-label": `Done: step ${s.step}`, onchange: update }),
-        el("span", { class: "step-n", "aria-hidden": "true", text: s.step }),
-        el("span", { class: "step-body" },
-          s.requires_isolation ? el("p", { class: "isolate-note", text: "Isolate and lock out the power before this step." }) : null,
-          el("span", { class: "step-text", text: s.action }))),
-      cites(response, s.citations)))));
+    el("div", { class: "block-head" }, el("h2", { text: t("whatToDo") }), track),
+    el("ol", {}, steps.map((s, i) => {
+      const item = shown(response, "steps", i, s.action);
+      return el("li", { class: `step${s.requires_isolation ? " isolate" : ""}` },
+        el("label", {},
+          el("input", { type: "checkbox", "aria-label": t("stepDone", { n: s.step }), onchange: update }),
+          el("span", { class: "step-n", "aria-hidden": "true", text: s.step }),
+          el("span", { class: "step-body" },
+            s.requires_isolation ? el("p", { class: "isolate-note", text: t("isolateNote") }) : null,
+            el("span", { class: "step-text", lang: item.lang, text: item.text }), inEnglishTag(item))),
+        cites(response, s.citations));
+    })));
   return block;
 }
 
 function sourcesBlock(response) {
   if (!response.sources.length) return null;
   return el("details", { class: "block sources" },
-    el("summary", { text: `Manual pages used (${response.sources.length})` }),
+    el("summary", { text: t("pagesUsed", { n: response.sources.length }) }),
     el("ul", {}, response.sources.map((s) => el("li", {},
       citeButton(response, s.manual, s.page_start, s.chunk_id),
-      el("span", {}, s.heading, s.kind === "safety" ? el("span", { class: "kind", text: " (safety)" }) : null)))));
+      el("span", { lang: "en" }, s.heading, s.kind === "safety" ? el("span", { class: "kind", text: t("safetyKind") }) : null)))));
 }
 
-const PLAIN = [
-  ["evidence threshold", "This does not match anything in the drive manuals."],
-  ["do not cover", "The manual pages found do not explain this problem well enough to name a cause."],
-  ["grounding checks", "The drafted answer could not be fully backed by the manuals, so it is not shown."],
-  ["language model", "The answering model is not available right now."],
-];
-function plainReason(reason) { const hit = PLAIN.find(([key]) => reason.includes(key)); return hit ? hit[1] : reason; }
+const PLAIN = [["evidence threshold", "reasonEvidence"], ["do not cover", "reasonCover"],
+               ["grounding checks", "reasonGrounding"], ["language model", "reasonModel"]];
+function plainReason(reason) { const hit = PLAIN.find(([key]) => reason.includes(key)); return hit ? t(hit[1]) : null; }
+function collectText(text) {
+  const index = I18N.en.collect.indexOf(text);
+  return index >= 0 ? words("collect")[index] : text;
+}
 
 function escalationBlock(response) {
   const e = response.escalation;
   const plain = plainReason(e.reason);
   return el("section", { class: "escalate" },
-    el("h2", { text: "Call a maintenance engineer" }),
-    el("p", { text: plain }),
-    plain !== e.reason ? el("p", { class: "detail", text: `Details: ${e.reason}` }) : null,
-    el("h3", { text: "Before they arrive, note down" }),
-    el("ul", { class: "collect" }, e.collect.map((text) => el("li", {}, el("label", {}, el("input", { type: "checkbox" }), el("span", { text }))))),
+    el("h2", { text: t("callEngineer") }),
+    el("p", { lang: plain ? currentLang : "en", text: plain || e.reason }),
+    plain ? el("p", { class: "detail", lang: "en", text: t("details", { reason: e.reason }) }) : null,
+    el("h3", { text: t("noteDown") }),
+    el("ul", { class: "collect" }, e.collect.map((text) => el("li", {}, el("label", {}, el("input", { type: "checkbox" }), el("span", { text: collectText(text) }))))),
+    // The engineer's summary stays English: it is written for maintenance staff.
     el("button", { type: "button", class: "copy", onclick: () => copyText(
-      `${e.summary}\n\nPlease note:\n${e.collect.map((c) => `- ${c}`).join("\n")}`, "Summary copied for the engineer") },
-      "Copy for the engineer"),
-    e.sources_considered.length ? el("div", {}, el("h3", { text: "Manual pages checked" }),
+      `${e.summary}\n\nPlease note:\n${e.collect.map((c) => `- ${c}`).join("\n")}`, "summaryCopied") },
+      t("copyForEngineer")),
+    e.sources_considered.length ? el("div", {}, el("h3", { text: t("pagesChecked") }),
       cites(response, e.sources_considered.map((s) => ({ manual: s.manual, page: s.page_start, chunk_id: s.chunk_id })))) : null);
 }
 
 function answerText(response) {
   const pages = (citations) => [...new Set(citations.map((c) => `${familyOf(response, c.manual)} p.${c.page}`))].join(", ");
   const lines = [`FaultSense: ${response.query}${response.machine_id ? ` (${response.machine_id})` : ""}`];
-  for (const m of response.matched_fault_codes) lines.push(`Fault code: ${m.code} ${m.name} (${familyOf(response, m.manual)} p.${m.page})`);
+  for (const m of response.matched_fault_codes) lines.push(`${t("copyFaultCode")}: ${m.code} ${m.name} (${familyOf(response, m.manual)} p.${m.page})`);
   if (response.safety_warnings.length) {
-    lines.push("", "Safety:", ...response.safety_warnings.map((w) => `- ${w.text} (${pages(w.citations)})`));
+    lines.push("", `${t("copySafety")}:`, ...response.safety_warnings.map((w, i) =>
+      `- ${shown(response, "safety_warnings", i, w.text).text} (${pages(w.citations)})`));
   }
-  lines.push("", "Likely causes:", ...response.probable_causes.map((c) => `${c.rank}. ${c.cause} (${pages(c.citations)})`));
-  lines.push("", "Steps:", ...response.corrective_actions.map((s) =>
-    `${s.step}. ${s.requires_isolation ? "[Isolate and lock out first] " : ""}${s.action} (${pages(s.citations)})`));
+  lines.push("", `${t("likelyCauses")}:`, ...response.probable_causes.map((c, i) =>
+    `${c.rank}. ${shown(response, "causes", i, c.cause).text} (${pages(c.citations)})`));
+  lines.push("", `${t("copySteps")}:`, ...response.corrective_actions.map((s, i) =>
+    `${s.step}. ${s.requires_isolation ? `${t("copyIsolate")} ` : ""}${shown(response, "steps", i, s.action).text} (${pages(s.citations)})`));
   return lines.join("\n");
 }
 
 function showDiagnosis(response, { codeShown }) {
+  lastAnswer = { response, codeShown };
   const seconds = Math.max(1, Math.round(response.meta.latency_ms / 1000));
   const report = () => answerText(response);
+  const translated = translationOf(response);
+  const wantsTranslation = response.language === "hi" || response.language === "ta";
+  const toggle = translated && response.status === "diagnosis"
+    ? el("button", { type: "button", class: "button-quiet", onclick: () => {
+        view = view === "translated" ? "english" : "translated";
+        showDiagnosis(response, { codeShown: true });
+      } }, view === "translated" ? t("showEnglish") : t("showTranslated"))
+    : null;
   const toolbar = el("div", { class: "toolbar" },
-    el("p", { class: "meta", text: `Answered in ${seconds} s.` }),
+    el("p", { class: "meta", text: t("answeredIn", { s: seconds }) }),
+    toggle,
     response.status === "diagnosis"
-      ? el("button", { type: "button", class: "button-quiet", onclick: () => copyText(report(), "Answer copied") }, icon("copy"), "Copy answer")
+      ? el("button", { type: "button", class: "button-quiet", onclick: () => copyText(report(), "answerCopied") }, icon("copy"), t("copyAnswer"))
       : null);
   const parts = [codeReadout(response, { reveal: !codeShown })];
+  if (wantsTranslation && !translated && response.status === "diagnosis") parts.push(el("p", { class: "notice", text: t("translationUnavailable") }));
   if (response.status === "escalate") parts.push(escalationBlock(response));
   else parts.push(dangerBlock(response), causesBlock(response), stepsBlock(response, report));
   parts.push(sourcesBlock(response), toolbar);
   answer.replaceChildren(...parts.filter(Boolean));
 }
 
-function showProblem(title, text) {
-  answer.replaceChildren(el("section", { class: "problem", role: "alert" }, el("h2", { text: title }), el("p", { text })));
+function showProblem(titleKey, bodyKey, vars) {
+  lastAnswer = null;
+  answer.replaceChildren(el("section", { class: "problem", role: "alert" }, el("h2", { text: t(titleKey) }), el("p", { text: t(bodyKey, vars) })));
 }
 
 /* ---------- live progress ---------- */
-function progressView() {
-  const stages = [
-    ["read", "Reading the question"],
-    ["search", "Searching the manuals"],
-    ["write", "Writing the answer"],
-    ["check", "Checking every citation"],
-  ].map(([key, name]) => {
+function progressView(translating) {
+  const keys = [["read", "stageRead"], ["search", "stageSearch"], ["write", "stageWrite"], ["check", "stageCheck"]];
+  if (translating) keys.push(["translate", "stageTranslate"]);
+  const stages = keys.map(([key, nameKey]) => {
     const detail = el("span", { class: "stage-detail" });
-    const item = el("li", { class: "stage" }, el("span", { class: "stage-mark", "aria-hidden": "true" }), el("span", { class: "stage-name", text: name }), detail);
+    const item = el("li", { class: "stage" }, el("span", { class: "stage-mark", "aria-hidden": "true" }), el("span", { class: "stage-name", text: t(nameKey) }), detail);
     return { key, item, detail };
   });
   const elapsed = el("p", { class: "elapsed" });
-  const display = el("div", {}, readout("", "Checking the manuals", "Working on it", { testing: true }));
-  const view = el("div", { class: "block", style: "padding: 0" }, el("ol", { class: "progress" }, stages.map((s) => s.item)), elapsed);
+  const display = el("div", {}, readout("", t("checkingManuals"), t("working"), { testing: true }));
+  const view_ = el("div", { class: "block", style: "padding: 0" }, el("ol", { class: "progress" }, stages.map((s) => s.item)), elapsed);
   const set = (key, state, text) => {
     const stage = stages.find((s) => s.key === key);
+    if (!stage) return;
     stage.item.classList.remove("active", "done", "warn");
     if (state) stage.item.classList.add(state);
     if (text !== undefined) stage.detail.textContent = text;
   };
-  return { display, view, elapsed, set };
+  return { display, view: view_, elapsed, set };
 }
 
 /* ---------- asking ---------- */
@@ -533,64 +596,70 @@ async function readStream(response, onEvent) {
   if (buffer.trim()) onEvent(JSON.parse(buffer));
 }
 
-let busy = false;
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (busy) return;
   const query = queryBox.value.trim();
   formError.hidden = true;
   if (!query) {
-    formError.textContent = "Type the code on the display or a short description first.";
+    formError.textContent = t("emptyQuery");
     formError.hidden = false;
     queryBox.focus();
     return;
   }
   busy = true;
+  lastAnswer = null;
+  view = "translated";
   goButton.disabled = true;
-  goButton.textContent = "Diagnosing";
+  goButton.textContent = t("diagnosing");
   answer.setAttribute("aria-busy", "true");
   const machineId = selectedMachineId();
+  const language = currentLang;
   const started = performance.now();
-  const progress = progressView();
+  const progress = progressView(language !== "en");
   let codeShown = false;
   progress.set("read", "active");
   answer.replaceChildren(progress.display, progress.view);
   const tick = () => {
-    const seconds = Math.round((performance.now() - started) / 1000);
+    const s = Math.round((performance.now() - started) / 1000);
     // Local models share the graphics card; a game or video editor can slow them to a crawl.
-    progress.elapsed.textContent = seconds < 60
-      ? `${seconds} s. Usually 15 to 40 s on this computer.`
-      : `${seconds} s. This is taking longer than usual. If a game or another graphics-heavy program is open, closing it frees the graphics card FaultSense uses.`;
+    progress.elapsed.textContent = t(s < 60 ? "elapsed" : "slow", { s });
   };
   tick();
   const timer = setInterval(tick, 1000);
   revealAnswer();
 
   const onEvent = (e) => {
-    if (e.event === "stage" && e.stage === "search") {
-      progress.set("read", "done", e.models && e.models.length ? `About the ${e.models.join(", ")}` : "");
+    if (e.event === "stage" && e.stage === "translate_in") {
+      progress.set("read", "active", t("translatingQuestion", { language: I18N[e.language] ? I18N[e.language].languageName : e.language }));
+    } else if (e.event === "stage" && e.stage === "search") {
+      progress.set("read", "done", e.models && e.models.length ? t("aboutModels", { models: e.models.join(", ") }) : "");
       progress.set("search", "active");
     } else if (e.event === "stage" && e.stage === "found") {
       const top = e.top ? `${e.top.family} p.${e.top.page}` : null;
       const more = Math.max(0, (e.pages || 0) - 1);
       const text = e.codes && e.codes.length
-        ? `Found ${e.codes[0]} in ${top}${more ? ` and ${more} more passages` : ""}`
-        : top ? `Closest match: ${top}, ${e.top.heading.split(" > ").pop()}` : "Nothing close in the manuals";
+        ? t("foundCode", { code: e.codes[0], page: top }) + (more ? t("morePassages", { n: more }) : "")
+        : top ? t("closest", { page: top, heading: e.top.heading.split(" > ").pop() }) : t("nothingClose");
       progress.set("search", "done", text);
       progress.set("write", "active");
       if (e.codes && e.codes.length) {
         codeShown = true;
-        progress.display.replaceChildren(readout(e.codes[0], "Code recognised", "Reading its manual entry", { reveal: true }));
+        progress.display.replaceChildren(readout(e.codes[0], t("codeRecognised"), t("readingEntry"), { reveal: true }));
       }
     } else if (e.event === "stage" && e.stage === "retry") {
-      progress.set("check", "warn", "A draft cited something the manual does not say, so it is being rewritten");
+      progress.set("check", "warn", t("retry"));
+    } else if (e.event === "stage" && e.stage === "translate_out") {
+      progress.set("write", "done");
+      progress.set("check", "done");
+      progress.set("translate", "active");
     } else if (e.event === "result") {
       showDiagnosis(e.response, { codeShown });
       remember(query, machineId);
       if (lamp.dataset.state !== "ready") checkHealth();
     } else if (e.event === "error") {
-      if (e.status === 404) showProblem("Unknown machine", "That machine is not set up in FaultSense. Choose another machine or Any drive.");
-      else { showProblem("FaultSense could not answer", `The server reported an error (${e.detail}). Try again; if it repeats, check the terminal running faultsense serve.`); checkHealth(); }
+      if (e.status === 404) showProblem("unknownMachineTitle", "unknownMachineBody");
+      else { showProblem("failedTitle", "failedBody", { detail: e.detail }); checkHealth(); }
     }
   };
 
@@ -598,19 +667,19 @@ form.addEventListener("submit", async (event) => {
     const response = await fetch("/diagnose/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, machine_id: machineId || null }),
+      body: JSON.stringify({ query, machine_id: machineId || null, language }),
     });
     if (response.ok) await readStream(response, onEvent);
-    else if (response.status === 422) showProblem("That question could not be read", "Type a fault code or a short description in plain text, up to 2,000 characters.");
-    else { showProblem("FaultSense could not answer", `The server reported an error (${response.status}).`); checkHealth(); }
+    else if (response.status === 422) showProblem("unreadableTitle", "unreadableBody");
+    else { showProblem("failedTitle", "failedBody", { detail: response.status }); checkHealth(); }
   } catch {
-    showProblem("FaultSense is not reachable", "Check that faultsense serve is still running on this computer, then try again.");
-    setLamp("down", "Server not running");
+    showProblem("unreachableTitle", "unreachableBody");
+    setLamp("down", "serverDown");
   } finally {
     clearInterval(timer);
     busy = false;
     goButton.disabled = false;
-    goButton.textContent = "Diagnose";
+    goButton.textContent = t("diagnose");
     answer.setAttribute("aria-busy", "false");
     revealAnswer();
   }
@@ -620,7 +689,6 @@ queryBox.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) form.requestSubmit();
 });
 
-showEmpty();
-showRecent();
+applyLanguage(store.get("faultsense.lang", "en"));
 loadInfo();
 checkHealth();

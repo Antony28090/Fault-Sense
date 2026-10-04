@@ -1,6 +1,7 @@
 """Runtime settings, read from environment variables and the project's .env file."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -22,6 +23,12 @@ class Settings(BaseSettings):
     ollama_url: str = "http://localhost:11434"  # LLM_PROVIDER=ollama runs a local open-weight model
     ollama_num_ctx: int = 16384  # prompts carry 8+ manual passages; Ollama's default context is shorter
     ollama_think: bool = False
+    translation: str = "indictrans2"  # Hindi/Tamil translation: indictrans2 (local, CPU) or off
+    translation_device: str = "cpu"
+    translation_python: str = ""  # the .venv-indic interpreter (default below); see `faultsense setup-translation`
+    translation_idle_minutes: float = 15.0  # the translation helper stops after this long without a request
+    translation_beams: int = 1  # 1 = greedy; measured 2.5x faster than 5 beams with the same check pass rate
+    hf_token: str = ""  # Hugging Face read token: the IndicTrans2 models are gated
     embedding_model: str = "BAAI/bge-m3"
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     device: str = "cuda"
@@ -43,6 +50,13 @@ class Settings(BaseSettings):
         return self.rewrite_model or self.llm_model
     data_dir: Path = PROJECT_ROOT / "data"
     eval_runs_dir: Path = PROJECT_ROOT / "eval_runs"
+
+    @property
+    def translation_python_path(self) -> Path:
+        if self.translation_python:
+            return Path(self.translation_python)
+        env = PROJECT_ROOT / ".venv-indic"
+        return env / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
     @property
     def manuals_dir(self) -> Path:
